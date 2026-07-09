@@ -1,0 +1,34 @@
+name: Publish to MCP Registry
+
+# Publishes server.json to the official MCP Registry using GitHub Actions OIDC —
+# no interactive login, no stored secrets. Runs on every published release and can
+# be triggered manually.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # required for GitHub OIDC authentication
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install mcp-publisher
+        run: |
+          curl -sSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
+            | tar xz mcp-publisher
+          ./mcp-publisher --version || true
+
+      - name: Validate server.json
+        run: ./mcp-publisher validate
+
+      - name: Authenticate (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish
+        run: ./mcp-publisher publish
