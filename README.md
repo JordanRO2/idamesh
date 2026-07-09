@@ -93,3 +93,6 @@ The live `idalib` end-to-end tests skip cleanly when IDA is unavailable (no
 ## License
 
 [MIT](LICENSE).
+
+<!-- mcp-name: io.github.JordanRO2/idamesh -->
+
