@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install package (with dev extras)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+
+      # The architecture import-contract test enforces the DDD layer rule, the
+      # confinement of the IDA SDK to infrastructure/ida/**, and the idapro-free
+      # supervisor graph. Run it first so a boundary violation fails fast.
+      - name: Architecture import contract
+        run: python -m pytest -q tests/architecture
+
+      # Full CI-safe suite. The live idalib end-to-end tests skip cleanly when IDA
+      # is unavailable (no IDADIR); -rs reports why they were skipped.
+      - name: Test suite
+        run: python -m pytest -q -rs

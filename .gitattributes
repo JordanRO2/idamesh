@@ -1,0 +1,33 @@
+# Normalize line endings: store text with LF, let git convert on checkout.
+* text=auto eol=lf
+
+# Windows batch scripts must keep CRLF to run correctly.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary artifacts — never normalize or diff as text.
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.pyd binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.gz binary
+
+# IDA databases & artifacts are binary.
+*.i64 binary
+*.idb binary
+*.id0 binary
+*.id1 binary
+*.id2 binary
+*.nam binary
+*.til binary
+*.dmp binary
+
+# Test fixture: an actual PE, must stay byte-for-byte binary.
+tests/fixtures/tiny.exe binary

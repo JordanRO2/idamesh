@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "idamesh"
+version = "1.0.0"
+description = "A Model Context Protocol server for IDA Pro."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "JordanRO2" }]
+keywords = [
+  "ida-pro",
+  "ida",
+  "idalib",
+  "hex-rays",
+  "mcp",
+  "model-context-protocol",
+  "reverse-engineering",
+  "disassembler",
+  "decompiler",
+  "binary-analysis",
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "License :: OSI Approved :: MIT License",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Information Technology",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Disassemblers",
+  "Topic :: Security",
+  "Typing :: Typed",
+]
+
+# The runtime has zero third-party dependencies: the JSON-RPC + MCP transport
+# stack is written against the Python standard library only. IDA itself (the
+# `idapro`/`idalib` SDK) is supplied by an IDA Pro installation, not pip.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.urls]
+Repository = "https://github.com/JordanRO2/idamesh"
+Changelog = "https://github.com/JordanRO2/idamesh/releases"
+
+[project.scripts]
+idamesh = "idamesh.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+idamesh = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
