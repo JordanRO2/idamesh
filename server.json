@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.JordanRO2/idamesh",
   "title": "idamesh",
-  "description": "MCP server for IDA Pro. Exposes the disassembler and Hex-Rays decompiler as tools and resources: decompile, disassemble, cross-refs, call graphs, type/struct inspection, memory reads, search, structured queries, analytics, and mutation. A supervisor fronts multiple databases behind one endpoint; a resident GUI plugin serves the live database. Requires a licensed IDA Pro install.",
+  "description": "MCP server for IDA Pro: decompiler, disassembler, and analysis tools for MCP clients.",
   "version": "1.0.0",
   "repository": {
     "url": "https://github.com/JordanRO2/idamesh",
