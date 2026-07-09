@@ -28,8 +28,13 @@ Read-only IDB state is also projected as `ida://…` MCP resources.
 ## Install
 
 ```bash
-pip install -e .          # runtime (zero third-party dependencies)
-pip install -e .[dev]     # + pytest, to run the test suite
+pip install idamesh
+```
+
+Or from a clone, for development:
+
+```bash
+pip install -e .[dev]     # editable install + pytest, to run the test suite
 ```
 
 This provides the `idamesh` command with three subcommands: `worker`, `supervisor`,
