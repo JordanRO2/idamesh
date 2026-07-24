@@ -40,6 +40,7 @@ from idamesh.application.contexts.define_func import (
 from idamesh.application.contexts.disasm import DisasmUseCase
 from idamesh.application.contexts.entity_query import EntityQueryUseCase
 from idamesh.application.contexts.enum_upsert import EnumUpsertUseCase
+from idamesh.application.contexts.exec_script import ExecScriptUseCase
 from idamesh.application.contexts.force_recompile import ForceRecompileUseCase
 from idamesh.application.contexts.export_funcs import ExportFuncsUseCase
 from idamesh.application.contexts.func_query import FuncQueryUseCase
@@ -117,6 +118,7 @@ from idamesh.interface.catalog.detect_vulns import register_detect_vulns
 from idamesh.interface.catalog.disasm import register_disasm
 from idamesh.interface.catalog.entity_query import register_entity_query
 from idamesh.interface.catalog.enum_upsert import register_enum_upsert
+from idamesh.interface.catalog.exec_python import register_exec_python
 from idamesh.interface.catalog.force_recompile import register_force_recompile
 from idamesh.interface.catalog.export_funcs import register_export_funcs
 from idamesh.interface.catalog.func_query import register_func_query
@@ -213,6 +215,7 @@ __all__ = [
     "register_define_code",
     "register_declare_type",
     "register_enum_upsert",
+    "register_exec_python",
     "register_declare_stack",
     "register_delete_stack",
     "register_add_bookmark",
@@ -291,6 +294,7 @@ def register_slice(
     survey_binary_use_case: SurveyBinaryUseCase,
     analyze_function_use_case: AnalyzeFunctionUseCase,
     analyze_component_use_case: AnalyzeComponentUseCase,
+    exec_script_use_case: ExecScriptUseCase,
     executor: MainThreadExecutor,
 ) -> None:
     """Register the currently-shipping tools onto ``registry``."""
@@ -588,5 +592,10 @@ def register_slice(
     register_analyze_component(
         registry,
         analyze_component_use_case=analyze_component_use_case,
+        executor=executor,
+    )
+    register_exec_python(
+        registry,
+        exec_script_use_case=exec_script_use_case,
         executor=executor,
     )

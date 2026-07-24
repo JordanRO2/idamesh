@@ -50,6 +50,7 @@ from idamesh.application.contexts.define_func import (
 from idamesh.application.contexts.disasm import DisasmUseCase
 from idamesh.application.contexts.entity_query import EntityQueryUseCase
 from idamesh.application.contexts.enum_upsert import EnumUpsertUseCase
+from idamesh.application.contexts.exec_script import ExecScriptUseCase
 from idamesh.application.contexts.force_recompile import ForceRecompileUseCase
 from idamesh.application.contexts.export_funcs import ExportFuncsUseCase
 from idamesh.application.contexts.func_query import FuncQueryUseCase
@@ -143,6 +144,7 @@ from idamesh.infrastructure.ida.operand_adapter import IdaOperandGateway
 from idamesh.infrastructure.ida.patch_adapter import IdaPatchGateway
 from idamesh.infrastructure.ida.recompile_adapter import IdaRecompileGateway
 from idamesh.infrastructure.ida.search_adapter import IdaSearchGateway
+from idamesh.infrastructure.ida.script_adapter import IdaScriptGateway
 from idamesh.infrastructure.ida.snapshot_adapter import IdaSnapshotGateway
 from idamesh.infrastructure.ida.stack_adapter import IdaStackGateway
 from idamesh.infrastructure.ida.strings_adapter import IdaStringsRepository
@@ -224,6 +226,7 @@ def build_worker_container(
     recompile_gateway = IdaRecompileGateway()
     annotation_gateway = IdaAnnotationGateway()
     snapshot_gateway = IdaSnapshotGateway()
+    script_gateway = IdaScriptGateway()
     number_service = NumberService()
     crypto_signature_service = CryptoSignatureService()
     dangerous_api_service = DangerousApiService()
@@ -350,6 +353,7 @@ def build_worker_container(
         xrefs_repo,
         component_service,
     )
+    exec_script_use_case = ExecScriptUseCase(script_gateway)
 
     registry = Registry()
     register_slice(
@@ -414,6 +418,7 @@ def build_worker_container(
         survey_binary_use_case=survey_binary_use_case,
         analyze_function_use_case=analyze_function_use_case,
         analyze_component_use_case=analyze_component_use_case,
+        exec_script_use_case=exec_script_use_case,
         executor=resolved_executor,
     )
     register_resources(
