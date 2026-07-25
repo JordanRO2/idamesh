@@ -119,7 +119,7 @@ class SupervisorRouter:
         self._ready_lock = threading.Lock()
         self._inner_ids = itertools.count(1)
         #: The merge-back pipeline; driven only for ``idb_merge``.
-        self._merge = MergeOrchestrator(pool=pool, client=client)
+        self._merge = MergeOrchestrator(pool=pool, client=client, discovery=discovery)
 
     # -- wiring seam ---------------------------------------------------------
 

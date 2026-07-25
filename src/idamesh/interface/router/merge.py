@@ -52,6 +52,7 @@ from idamesh.domain.services.reconciliation import (
 )
 from idamesh.interface.mcp.middleware import OVERFLOW_META_KEY
 from idamesh.interface.router.ports import (
+    GuiDiscoveryPort,
     SessionView,
     WorkerClientPort,
     WorkerPoolPort,
@@ -140,10 +141,41 @@ class MergeOrchestrator:
         *,
         pool: WorkerPoolPort,
         client: WorkerClientPort,
+        discovery: Optional[GuiDiscoveryPort] = None,
     ) -> None:
         self._pool = pool
         self._client = client
+        self._discovery = discovery
         self._inner_ids = itertools.count(1)
+
+    # -- session resolution --------------------------------------------------
+
+    def _live_sessions(self) -> List[SessionView]:
+        """Owned workers plus any adopted (GUI) instances, workers first.
+
+        A merge that could only see pool workers made the whole point of the
+        feature — consolidate a session's work into the database you are actually
+        looking at — impossible, and worse, it dropped an adopted id silently.
+        """
+        sessions: List[SessionView] = list(self._pool.list_sessions())
+        if self._discovery is None:
+            return sessions
+        seen = {s.session_id for s in sessions}
+        for adopted in self._discovery.list_sessions():
+            if adopted.session_id not in seen:
+                sessions.append(adopted)
+        return sessions
+
+    def _is_adopted(self, session: SessionView) -> bool:
+        """True for an instance the supervisor discovered rather than spawned.
+
+        An adopted instance owns its own database, which is exactly why it makes a
+        good merge **target** and a bad merge *source*: as a target it needs no
+        pristine baseline (a target contributes no edits, it only receives them),
+        while as a source there is no private copy to subtract and its export
+        would be reconciled against nothing. Sources therefore stay pool-only.
+        """
+        return self._pool.get(session.session_id) is None
 
     # -- entry point ---------------------------------------------------------
 
@@ -306,9 +338,11 @@ class MergeOrchestrator:
                 # own database, and have no pristine baseline to subtract.
                 raise MergeError(
                     f"merge sources {missing} are not open worker sessions; "
-                    "only databases opened with idb_open can be merged "
-                    "(an adopted/GUI instance owns its own database and has no "
-                    "pristine baseline). List them with idb_list."
+                    "only databases opened with idb_open can be merge SOURCES "
+                    "(an adopted/GUI instance owns its own database, so there is "
+                    "no private copy whose pristine baseline could isolate its "
+                    "edits). An adopted instance can still RECEIVE the merge: "
+                    "pass its id as 'into'. List them with idb_list."
                 )
             return [by_id[sid] for sid in wanted]
         return [s for s in live if _path_matches(request.path, s)]
@@ -412,6 +446,15 @@ class MergeOrchestrator:
             found = self._pool.get(request.into)
             if found is not None:
                 return found
+            # An adopted (GUI) instance is a first-class merge TARGET: the point
+            # of the merge-back is to land a session's work in the database the
+            # operator is actually looking at. It needs no pristine baseline —
+            # a target receives annotations, it does not contribute them — and
+            # the provenance gate below still refuses a cross-binary write.
+            if self._discovery is not None:
+                adopted = self._discovery.get(request.into)
+                if adopted is not None:
+                    return adopted
             raise MergeError(
                 f"merge target '{request.into}' is not an open session"
             )
@@ -524,6 +567,17 @@ class MergeOrchestrator:
         allow an explicit destination and confirm the write survived the
         live working files.
         """
+        if self._is_adopted(target):
+            # An adopted instance owns its database and its own save lifecycle;
+            # the supervisor must not write a copy beside it (its ``input_path``
+            # is not even ours to derive a path from). The merged annotations are
+            # already live in that IDA — the operator saves it there.
+            return {
+                "skipped": (
+                    "adopted target owns its database: the merged annotations are "
+                    "live in that instance; save it from IDA (no .merged.i64 written)"
+                )
+            }
         dest = _canonical_snapshot_path(target)
         structured = self._call_worker_tool(
             target, _SNAPSHOT_TOOL, {"path": dest}
