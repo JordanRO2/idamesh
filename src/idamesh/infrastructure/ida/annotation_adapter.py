@@ -134,12 +134,46 @@ class IdaAnnotationGateway:
             except Exception as exc:  # noqa: BLE001 — collected, never fatal
                 failures.append(f"type at {_hex(ea)}: {exc}")
 
+        if names_applied or comments_applied or types_applied:
+            _refresh_ui()
+
         return AnnotationApplyReport(
             names=names_applied,
             comments=comments_applied,
             types=types_applied,
             failures=tuple(failures),
         )
+
+
+def _refresh_ui() -> None:
+    """Repaint the open IDA views after a write, so a merge is *visible*.
+
+    A merge into a live GUI instance is the point of the merge-back: the operator
+    watches that database. IDA does not repaint on a programmatic rename, so
+    without this the names land in the database but the disassembly, Names and
+    Functions lists keep showing the pre-merge state until something forces a
+    redraw — indistinguishable, to the operator, from a merge that did nothing.
+
+    Best-effort and entirely optional: headless ``idalib`` has no widgets, and a
+    build without one of these entry points must not turn a successful apply into
+    a failure, so every step is guarded.
+    """
+    try:
+        import ida_kernwin
+    except Exception:  # noqa: BLE001 — no SDK / no UI: nothing to repaint
+        return
+    try:
+        widgets = 0
+        for attr in ("IWID_DISASMS", "IWID_NAMES", "IWID_FUNCS", "IWID_PSEUDOCODE"):
+            widgets |= getattr(ida_kernwin, attr, 0)
+        if widgets:
+            ida_kernwin.request_refresh(widgets)
+    except Exception:  # noqa: BLE001 — refresh is cosmetic, never fatal
+        pass
+    try:
+        ida_kernwin.refresh_idaview_anchor()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 # -- export readers (lazy SDK) --------------------------------------------- #
