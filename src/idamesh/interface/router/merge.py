@@ -29,11 +29,13 @@ so the whole pipeline runs end to end against a fake pool / client.
 
 from __future__ import annotations
 
+import collections.abc as cabc
 import itertools
+import json
 import os
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
 
 from idamesh.application.annotation_wire import (
     annotation_record_from_wire,
@@ -48,6 +50,7 @@ from idamesh.domain.services.reconciliation import (
     plan_to_record,
     reconcile,
 )
+from idamesh.interface.mcp.middleware import OVERFLOW_META_KEY
 from idamesh.interface.router.ports import (
     SessionView,
     WorkerClientPort,
@@ -58,6 +61,11 @@ from idamesh.interface.router.ports import (
 _EXPORT_TOOL = "export_annotations"
 _APPLY_TOOL = "apply_annotations"
 _SNAPSHOT_TOOL = "idb_snapshot"
+
+#: Annotations per ``apply_annotations`` frame. The record travels as a request
+#: *argument*, so a whole database's worth would exceed the transport's body cap;
+#: batching keeps every frame small regardless of database size.
+_APPLY_BATCH_ITEMS: int = 4000
 
 #: The pristine-baseline export runs immediately after a worker's readiness
 #: handshake; a transient connection blip there must not leave a session without
@@ -161,7 +169,10 @@ class MergeOrchestrator:
         except MergeError as exc:
             return {"error": str(exc)}
 
-        sessions = self._resolve_sources(request)
+        try:
+            sessions = self._resolve_sources(request)
+        except MergeError as exc:
+            return {"error": str(exc), "sessions": [], "reachable": [], "unreachable": []}
         if not sessions:
             return {
                 "error": (
@@ -276,8 +287,9 @@ class MergeOrchestrator:
     def _resolve_sources(self, request: MergeRequest) -> List[SessionView]:
         """The live sessions participating in this merge, in deterministic order.
 
-        Explicit ``sources`` ids win (intersected with the live set so a stale id
-        drops out); otherwise every live session whose ``input_path`` matches
+        Explicit ``sources`` ids win, and every one of them must name a live pool
+        worker — an id that resolves to nothing raises rather than quietly
+        shrinking the merge; otherwise every live session whose ``input_path`` matches
         ``request.path``. tighten path matching (exact key / resolved
         realpath / basename) — the basename match here is the minimal seam.
         """
@@ -285,7 +297,20 @@ class MergeOrchestrator:
         if request.sources:
             wanted = list(request.sources)
             by_id = {s.session_id: s for s in live}
-            return [by_id[sid] for sid in wanted if sid in by_id]
+            missing = [sid for sid in wanted if sid not in by_id]
+            if missing:
+                # Dropping an unknown id and merging the rest reports success for
+                # a merge that silently excluded a contributor — the worst
+                # possible outcome for a consolidation step. Adopted/GUI
+                # instances land here too: they are not pool workers, own their
+                # own database, and have no pristine baseline to subtract.
+                raise MergeError(
+                    f"merge sources {missing} are not open worker sessions; "
+                    "only databases opened with idb_open can be merged "
+                    "(an adopted/GUI instance owns its own database and has no "
+                    "pristine baseline). List them with idb_list."
+                )
+            return [by_id[sid] for sid in wanted]
         return [s for s in live if _path_matches(request.path, s)]
 
     def _export_all(
@@ -474,21 +499,23 @@ class MergeOrchestrator:
         the merge is not reported as silently successful.
         """
         wire = annotation_record_to_wire(record)
-        structured = self._call_worker_tool(
-            target, _APPLY_TOOL, {"record": wire}
-        ) or {}
-        applied = structured.get("applied") or {}
-        counts = {
-            "names": int(applied.get("names", 0)),
-            "comments": int(applied.get("comments", 0)),
-            "types": int(applied.get("types", 0)),
-        }
-        raw_failures = structured.get("failures")
-        failures = (
-            list(raw_failures) if isinstance(raw_failures, (list, tuple)) else []
-        )
-        worker_ok = structured.get("ok")
-        ok = (True if worker_ok is None else bool(worker_ok)) and not failures
+        counts = {"names": 0, "comments": 0, "types": 0}
+        failures: List[Any] = []
+        worker_ok = True
+        for chunk in _split_wire(wire, _APPLY_BATCH_ITEMS):
+            structured = self._call_worker_tool(
+                target, _APPLY_TOOL, {"record": chunk}
+            ) or {}
+            applied = structured.get("applied") or {}
+            for field in counts:
+                counts[field] += int(applied.get(field, 0))
+            raw_failures = structured.get("failures")
+            if isinstance(raw_failures, (list, tuple)):
+                failures.extend(raw_failures)
+            reported = structured.get("ok")
+            if reported is not None and not reported:
+                worker_ok = False
+        ok = worker_ok and not failures
         return {"applied": counts, "ok": ok, "failures": failures}
 
     def _snapshot(self, target: SessionView) -> Dict[str, Any]:
@@ -549,7 +576,121 @@ class MergeOrchestrator:
             raise MergeError(
                 f"tool '{name}' failed on session '{session.session_id}'"
             )
-        return result.get("structuredContent")
+        structured = result.get("structuredContent")
+        ref = _overflow_ref(result)
+        if ref is not None:
+            structured = self._read_overflow(session, ref, name)
+        return structured
+
+    def _read_overflow(
+        self, session: SessionView, uri: str, name: str
+    ) -> Mapping[str, Any]:
+        """Fetch a parked oversized result back in full via ``resources/read``.
+
+        The worker's output guard spills any structured result over its char
+        budget to an overflow store and hands back a **10-item preview** plus an
+        ``mcpref://overflow/<sha>`` reference. A whole-database
+        ``export_annotations`` blows that budget by orders of magnitude, so
+        consuming the preview would merge ten annotations and call it a success.
+        The full payload is still addressable, and ``resources/read`` is not
+        wrapped by the ``tools/call`` middleware chain, so this returns it intact.
+
+        Raises :class:`MergeError` if the payload cannot be recovered — a merge
+        must fail loudly rather than proceed on a truncated record.
+        """
+        frame = {
+            "jsonrpc": "2.0",
+            "id": next(self._inner_ids),
+            "method": "resources/read",
+            "params": {"uri": uri},
+        }
+        try:
+            response = self._client.forward(
+                host=session.host,
+                port=session.port,
+                frame=frame,
+                token=session.token,
+            )
+        except Exception as exc:  # noqa: BLE001 — transport failure → merge-level
+            raise MergeError(
+                f"'{name}' on session '{session.session_id}' overflowed to {uri} "
+                f"and it could not be read back: {exc}"
+            ) from exc
+        if response is None or response.get("error") is not None:
+            detail = (response or {}).get("error", {}).get("message", "no response")
+            raise MergeError(
+                f"'{name}' on session '{session.session_id}' overflowed to {uri} "
+                f"and it could not be read back: {detail}"
+            )
+        contents = (response.get("result") or {}).get("contents") or []
+        for item in contents:
+            if not isinstance(item, cabc.Mapping):
+                continue
+            text = item.get("text")
+            if not isinstance(text, str):
+                continue
+            try:
+                payload = json.loads(text)
+            except ValueError as exc:
+                raise MergeError(
+                    f"'{name}' overflow payload at {uri} is not valid JSON: {exc}"
+                ) from exc
+            if isinstance(payload, cabc.Mapping):
+                return payload
+        raise MergeError(
+            f"'{name}' on session '{session.session_id}' overflowed to {uri} "
+            "but the payload came back empty"
+        )
+
+
+def _overflow_ref(result: Mapping[str, Any]) -> Optional[str]:
+    """The ``mcpref://`` URI of a result the output guard truncated, if any.
+
+    The guard marks a spilled result with ``_meta[OVERFLOW_META_KEY]`` carrying
+    ``truncated``/``ref``. Detecting it is what keeps a merge from mistaking a
+    ten-item preview for a whole database.
+    """
+    meta = result.get("_meta")
+    if not isinstance(meta, cabc.Mapping):
+        return None
+    marker = meta.get(OVERFLOW_META_KEY)
+    if not isinstance(marker, cabc.Mapping) or not marker.get("truncated"):
+        return None
+    uri = marker.get("ref")
+    return uri if isinstance(uri, str) and uri else None
+
+
+def _split_wire(wire: Mapping[str, Any], batch: int) -> Iterator[Dict[str, Any]]:
+    """Slice one annotation wire record into apply-sized chunks.
+
+    ``apply_annotations`` takes the whole record as a request *argument*, and the
+    HTTP transport caps a request body (``DEFAULT_MAX_BODY_BYTES``). A real
+    database's record is far larger than any single frame should carry, so it is
+    applied in batches of at most ``batch`` items across the three fields.
+    ``provenance`` rides on every chunk because the worker validates it per call.
+    At least one chunk is always produced, so an empty record still round-trips.
+    """
+    provenance = wire.get("provenance")
+    fields = ("names", "comments", "prototypes")
+    items = {f: list(wire.get(f) or []) for f in fields}
+    total = sum(len(v) for v in items.values())
+    if total == 0:
+        yield {k: v for k, v in wire.items()}
+        return
+    chunk: Dict[str, Any] = {"provenance": provenance}
+    room = batch
+    for field in fields:
+        rest = items[field]
+        while rest:
+            take, rest = rest[:room], rest[room:]
+            chunk.setdefault(field, []).extend(take)
+            room -= len(take)
+            if room == 0:
+                yield chunk
+                chunk = {"provenance": provenance}
+                room = batch
+    if any(chunk.get(f) for f in fields):
+        yield chunk
 
 
 # -- module helpers --------------------------------------------------------- #
