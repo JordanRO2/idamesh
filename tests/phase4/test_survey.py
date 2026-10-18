@@ -459,6 +459,23 @@ def test_categorize_import_maps_known_symbols(name, expected):
     assert SurveyService().categorize_import(name, "") == expected
 
 
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("SHA384", CATEGORY_CRYPTO),
+        ("SHA512_Init", CATEGORY_CRYPTO),
+        ("EVP_sha384", CATEGORY_CRYPTO),
+        ("EVP_sha512", CATEGORY_CRYPTO),
+        ("EVP_sha3_256", CATEGORY_CRYPTO),
+        ("sendmsg", CATEGORY_NETWORK),
+        ("sendfile", CATEGORY_NETWORK),
+        ("_wremove", CATEGORY_FILESYSTEM),
+    ],
+)
+def test_categorize_import_keeps_narrowed_real_apis(name, expected):
+    assert SurveyService().categorize_import(name, "") == expected
+
+
 @pytest.mark.parametrize("name", ["GetLastError", "lstrlenW", "printf"])
 def test_categorize_import_returns_none_for_unremarkable(name):
     assert SurveyService().categorize_import(name, "") is None
