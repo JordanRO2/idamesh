@@ -2,8 +2,8 @@
 
 The whole registry is exercised against a temp directory with the liveness probe
 faked, so no real process/port is needed. Locked in: an atomic round-trip, the
-oldest-first ordering, self-healing (corrupt JSON, missing keys, dead pid, and — with
-a port_check — an unreachable endpoint are all pruned), removal by port and by
+oldest-first ordering, self-healing (corrupt JSON, missing keys and a dead pid are pruned;
+with a port_check an unreachable endpoint is only hidden, never unlinked), removal by port and by
 session id, and the GUI-adoption reader's backend filtering + session lookup.
 """
 
@@ -134,13 +134,34 @@ def test_entry_with_no_pid_is_kept(reg_dir):
     assert [e.session_id for e in reg.read_all()] == ["gui-nopid"]
 
 
-def test_port_check_prunes_unreachable(reg_dir):
+def test_port_check_failure_omits_but_keeps_record(reg_dir):
+    # A live pid with a failing probe (busy GUI) is hidden from this read only.
     reg = DiscoveryRegistry(
         reg_dir,
         alive_check=lambda pid: True,
         port_check=lambda host, port: False,  # nothing is reachable
     )
-    path = reg.write(_entry("gui-gone"))
+    path = reg.write(_entry("gui-busy"))
+    assert reg.read_all() == []
+    assert path.exists()
+
+
+def test_port_check_recovers_after_transient_failure(reg_dir):
+    ok = {"v": False}
+    reg = DiscoveryRegistry(
+        reg_dir, alive_check=lambda pid: True, port_check=lambda h, p: ok["v"]
+    )
+    reg.write(_entry("gui-flaky"))
+    assert reg.read_all() == []
+    ok["v"] = True
+    assert [e.session_id for e in reg.read_all()] == ["gui-flaky"]
+
+
+def test_dead_pid_is_unlinked_even_with_port_check(reg_dir):
+    reg = DiscoveryRegistry(
+        reg_dir, alive_check=lambda pid: False, port_check=lambda h, p: True
+    )
+    path = reg.write(_entry("gui-dead"))
     assert reg.read_all() == []
     assert not path.exists()
 

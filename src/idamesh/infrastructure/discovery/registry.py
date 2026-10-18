@@ -25,9 +25,11 @@ One record::
 
 Writes are atomic (temp file + :func:`os.replace`). Reads *self-heal*: a record is
 dropped (its file unlinked) when its JSON is corrupt, a required key is missing,
-its ``pid`` is dead, or — when a ``port_check`` is supplied — its endpoint no
-longer accepts a connection (this catches OS pid reuse). Records come back
-oldest-first for deterministic ordering.
+or its ``pid`` is dead. When a ``port_check`` is supplied, a record whose endpoint
+does not accept a connection is omitted from that read (this catches OS pid reuse)
+but its file is kept: the GUI plugin writes it only once, so a transient probe
+failure must not evict a live instance for good. Records come back oldest-first
+for deterministic ordering.
 
 The unambiguous key is ``session_id``: N duplicate workers of one binary produce N
 records with the same ``idb_path`` but distinct ``port``/``pid``/``session_id``, so
@@ -258,9 +260,9 @@ class DiscoveryRegistry:
     def read_all(self) -> List[DiscoveryEntry]:
         """Every live, valid record, oldest-first.
 
-        Self-heals as it scans: a corrupt/incomplete record, a dead ``pid``, or (if
-        a ``port_check`` is configured) an unreachable endpoint has its file
-        unlinked and is omitted.
+        Self-heals as it scans: a corrupt/incomplete record or a dead ``pid`` has
+        its file unlinked and is omitted. A live ``pid`` whose endpoint fails the
+        configured ``port_check`` is omitted from this read only (file kept).
         """
         directory = self.directory
         if not directory.is_dir():
@@ -270,8 +272,10 @@ class DiscoveryRegistry:
             entry = self._read_valid(path)
             if entry is None:
                 continue
-            if not self._is_live(entry):
+            if entry.pid is not None and not self._alive_check(entry.pid):
                 _silent_unlink(path)
+                continue
+            if not self._port_ok(entry):
                 continue
             entries.append(entry)
         entries.sort(key=lambda e: (e.started_at, e.port))
@@ -309,12 +313,8 @@ class DiscoveryRegistry:
             _silent_unlink(path)
             return None
 
-    def _is_live(self, entry: DiscoveryEntry) -> bool:
-        if entry.pid is not None and not self._alive_check(entry.pid):
-            return False
-        if self._port_check is not None and not self._port_check(entry.host, entry.port):
-            return False
-        return True
+    def _port_ok(self, entry: DiscoveryEntry) -> bool:
+        return self._port_check is None or self._port_check(entry.host, entry.port)
 
 
 def _silent_unlink(path: Path) -> None:
