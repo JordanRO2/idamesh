@@ -124,6 +124,7 @@ class SupervisorRouter:
         #: ``mcpref://overflow/`` URI -> the session that parked it, so a bare
         #: ``resources/read`` of a truncated result can be routed back to its owner.
         self._overflow_owners: Dict[str, str] = {}
+        self._overflow_lock = threading.Lock()
         #: The merge-back pipeline; driven only for ``idb_merge``.
         self._merge = MergeOrchestrator(pool=pool, client=client, discovery=discovery)
 
@@ -308,11 +309,12 @@ class SupervisorRouter:
         return result
 
     def _remember_overflow(self, uri: str, session_id: str) -> None:
-        owners = self._overflow_owners
-        owners.pop(uri, None)
-        owners[uri] = session_id
-        while len(owners) > _MAX_OVERFLOW_OWNERS:
-            owners.pop(next(iter(owners)))
+        with self._overflow_lock:
+            owners = self._overflow_owners
+            owners.pop(uri, None)
+            owners[uri] = session_id
+            while len(owners) > _MAX_OVERFLOW_OWNERS:
+                owners.pop(next(iter(owners)))
 
     def _forward(
         self, session: SessionView, method: str, params: Mapping[str, Any], label: str
@@ -416,7 +418,8 @@ class SupervisorRouter:
         """
         self._require_initialized(ctx)
         uri = params.get("uri")
-        owner = self._overflow_owners.get(uri) if isinstance(uri, str) else None
+        with self._overflow_lock:
+            owner = self._overflow_owners.get(uri) if isinstance(uri, str) else None
         if owner is not None:
             session = self._resolve_session(owner)
             session.touch()
