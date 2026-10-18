@@ -56,7 +56,10 @@ def register_make_data(
         bytes (1/2/4/8 → byte/word/dword/qword) to define a primitive item. At
         least one of ``type`` or ``size`` must be given. The result reports the
         resolved ``address`` (``0x`` hex), the ``type`` in force afterward, the
-        item ``size`` in bytes, and ``ok``. This modifies the database. An
+        item ``size`` in bytes, and ``ok``. This modifies the database: items already
+        defined over the span are deleted first, and are not restored if IDA then
+        refuses the definition (the span must be mapped, which is checked up
+        front). An
         unparseable declaration, an unsupported size, a request with neither a type
         nor a positive size, or an unresolvable address yields an error result
         rather than failing the protocol request."""

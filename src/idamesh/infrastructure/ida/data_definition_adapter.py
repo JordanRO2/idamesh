@@ -84,10 +84,14 @@ class IdaDataDefinitionGateway:
 
         # Clear any prior items across the type's span so the definition lands on
         # raw bytes; a sizeless type (e.g. incomplete) clears only the head item.
+        # Remaining risk: the deletion is not undone if ``apply_tinfo`` still
+        # fails, so everything checkable (parse, mapped span) is checked first.
         span = tif.get_size()
         if span is None or span == ida_typeinf.BADSIZE or span <= 0:
+            _require_mapped(ida_bytes, ea, 1)
             ida_bytes.del_items(address, ida_bytes.DELIT_SIMPLE)
         else:
+            _require_mapped(ida_bytes, ea, span)
             ida_bytes.del_items(address, ida_bytes.DELIT_SIMPLE, span)
 
         if not ida_typeinf.apply_tinfo(
@@ -112,6 +116,7 @@ class IdaDataDefinitionGateway:
         creator_name, label = primitive
 
         address = int(ea)
+        _require_mapped(ida_bytes, ea, size)
         # Clear the span first so the primitive lands on raw bytes rather than
         # failing against an overlapping definition.
         ida_bytes.del_items(address, ida_bytes.DELIT_SIMPLE, size)
@@ -125,6 +130,17 @@ class IdaDataDefinitionGateway:
             )
 
         return label, _item_size(ida_bytes, address, size)
+
+
+def _require_mapped(ida_bytes, ea: Address, span: int) -> None:
+    """Raise unless the first and last byte of ``span`` at ``ea`` are mapped.
+
+    Checked before ``del_items`` so a define that cannot succeed leaves the
+    existing items untouched.
+    """
+    address = int(ea)
+    if not (ida_bytes.is_mapped(address) and ida_bytes.is_mapped(address + span - 1)):
+        raise ValueError(f"{span} bytes at {ea.hex()} are not mapped")
 
 
 def _type_label(tif) -> str:

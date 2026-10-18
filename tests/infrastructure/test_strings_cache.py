@@ -116,6 +116,7 @@ def test_make_data_and_patch_invalidate_the_shared_cache(monkeypatch):
         patch_bytes=lambda ea, data: None,
         DELIT_SIMPLE=0,
         del_items=lambda *a: True,
+        is_mapped=lambda ea: True,
         create_byte=lambda ea, size: True,
         get_item_size=lambda ea: 1,
     )
