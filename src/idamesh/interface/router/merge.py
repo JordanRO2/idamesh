@@ -228,6 +228,16 @@ class MergeOrchestrator:
                 "unreachable": [],
             }
         reachable, unreachable, records = self._export_all(sessions)
+        if unreachable:
+            return {
+                "error": (
+                    f"merge refused: sources {unreachable} are unreachable; "
+                    "merging without them would silently drop their edits"
+                ),
+                "sessions": session_ids,
+                "reachable": reachable,
+                "unreachable": unreachable,
+            }
 
         # Per-session pristine baselines: each reachable source is subtracted
         # against ITS OWN baseline captured in-process at idb_open (before any
@@ -364,7 +374,7 @@ class MergeOrchestrator:
 
         Returns ``(reachable_ids, unreachable_ids, [(session_id, record)])``. A
         session whose export cannot be reached or returns an error is recorded as
-        unreachable and contributes no record (the merge proceeds on the rest).
+        unreachable and contributes no record (the caller refuses the merge).
         """
         reachable: List[str] = []
         unreachable: List[str] = []

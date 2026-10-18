@@ -185,10 +185,10 @@ def test_unreadable_overflow_refuses_the_merge_instead_of_using_the_preview():
 
     report = env.orch.merge({"sources": ["sess-1"], "dry_run": True})
 
-    # An unrecoverable payload makes the source unreachable rather than silently
-    # contributing its ten-item preview.
+    # An unrecoverable payload makes the source unreachable (which refuses the
+    # merge) rather than silently contributing its ten-item preview.
     assert report.get("unreachable") == ["sess-1"], report
-    assert report["merged_counts"]["names"] == 0, report
+    assert "error" in report and "merged_counts" not in report, report
 
 
 # --------------------------------------------------------------------------- #

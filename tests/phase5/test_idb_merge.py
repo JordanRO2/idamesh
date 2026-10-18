@@ -27,7 +27,7 @@ Locked in here:
   ``into``) via ``apply_annotations`` + ``idb_snapshot`` at the canonical path;
 * ``manual`` policy refuses a write while unresolved conflicts remain (structured
   error), and a provenance mismatch is refused;
-* unreachable sources are reported and the merge proceeds on the rest;
+* an unreachable source refuses the merge (structured error, nothing written);
 * ``use_baseline=false`` disables baseline subtraction entirely;
 * malformed arguments (bad policy, neither sources nor path) are rejected.
 """
@@ -751,19 +751,20 @@ def test_snapshot_transport_error_yields_structured_error_not_exception():
 # --------------------------------------------------------------------------- #
 
 
-def test_unreachable_source_is_reported_and_merge_proceeds_on_the_rest():
+def test_unreachable_source_refuses_the_merge_without_writing():
     env = Env()
     env.baseline(_wire(names={}))
     env.add_source("sess-1", FakeEndpoint(export=_wire(names={0x401000: "kept"})))
     env.add_source("sess-2", FakeEndpoint(export_error=True))
 
-    result = env.orch.merge({"path": INPUT_PATH, "dry_run": True})
+    result = env.orch.merge({"path": INPUT_PATH, "policy": "last"})
 
+    assert "error" in result and "sess-2" in result["error"]
     assert result["reachable"] == ["sess-1"]
     assert result["unreachable"] == ["sess-2"]
-    # The reachable copy still contributes its edit.
-    assert result["merged_counts"]["names"] == 1
-    assert result["merged_counts"]["conflicts"] == 0
+    for endpoint in env.endpoints.values():
+        assert endpoint.calls_named(APPLY) == []
+        assert endpoint.calls_named(SNAPSHOT) == []
 
 
 def test_use_baseline_false_skips_the_pristine_copy():
