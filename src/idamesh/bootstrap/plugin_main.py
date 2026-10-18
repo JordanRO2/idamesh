@@ -127,6 +127,10 @@ def _safe_stem(name: str) -> str:
     return "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in stem)
 
 
+def _mint_session_id(binary: str) -> str:
+    return f"gui-{_safe_stem(binary or 'idb')}-{secrets.token_hex(3)}"
+
+
 class PluginServer:
     """Owns the live-database MCP endpoint and its discovery registration.
 
@@ -205,7 +209,7 @@ class PluginServer:
         self._bound_port = transport.bound_port
 
         binary, input_path, idb_path = self._database_identity()
-        self._session_id = f"gui-{_safe_stem(binary or 'idb')}-{secrets.token_hex(3)}"
+        self._session_id = _mint_session_id(binary)
         try:
             self._register(binary, input_path, idb_path)
         except BaseException:
@@ -223,12 +227,17 @@ class PluginServer:
         """Rewrite the discovery record with the now-open database's identity.
 
         ``init`` runs at IDA startup (``PLUGIN_FIX``), before any database is
-        loaded, so the first registration carries an empty identity. Best-effort.
+        loaded, so the first registration carries an empty identity. A loaded
+        database is a new target, so the session id is re-minted after its binary.
+        Best-effort.
         """
         if not self._started:
             return
         try:
-            self._register(*self._database_identity())
+            binary, input_path, idb_path = self._database_identity()
+            if binary:
+                self._session_id = _mint_session_id(binary)
+            self._register(binary, input_path, idb_path)
         except Exception:  # noqa: BLE001 — identity is informational only
             pass
 

@@ -248,6 +248,8 @@ def test_refresh_identity_fills_the_record_once_a_database_is_open(tmp_path, mon
             "I:/old/Rag2.exe",
             "C:/new/Rag2.exe.i64",
         )
-        assert entry.session_id == server.session_id  # routing id stays stable
+        assert entry.session_id == server.session_id
+        assert entry.session_id.startswith("gui-Rag2-")  # named after the loaded binary
+        assert len(registry.read_all()) == 1  # same per-port record, not a second one
     finally:
         server.stop()
