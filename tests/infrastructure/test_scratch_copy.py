@@ -90,3 +90,27 @@ def test_session_id_rejects_drive_relative_and_device_names(bad, tmp_path, monke
     exe = _touch(tmp_path / "program.exe")
     with pytest.raises(ValueError):
         materialize_private_copy(bad, str(exe))
+
+
+def test_sweep_removes_only_dirs_of_dead_owners(tmp_path, monkeypatch):
+    import os
+    import subprocess
+    import sys
+
+    from idamesh.infrastructure.process.scratch_copy import sweep_stale_session_dirs
+
+    monkeypatch.setenv("IDA_MCP_WORKER_SCRATCH", str(tmp_path / "scratch"))
+    exe = _touch(tmp_path / "program.exe")
+    dead = subprocess.Popen([sys.executable, "-c", "pass"])
+    dead.wait()
+    for sid in ("live", "dead"):
+        materialize_private_copy(sid, str(exe))
+    (tmp_path / "scratch" / "dead" / "owner.pid").write_text(str(dead.pid))
+    (tmp_path / "scratch" / "legacy").mkdir()  # no pid file: from an older version
+
+    sweep_stale_session_dirs()
+
+    assert (tmp_path / "scratch" / "live").is_dir()
+    assert (tmp_path / "scratch" / "legacy").is_dir()
+    assert not (tmp_path / "scratch" / "dead").exists()
+    assert (tmp_path / "scratch" / "live" / "owner.pid").read_text() == str(os.getpid())

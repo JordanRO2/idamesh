@@ -21,6 +21,7 @@ import itertools
 import json
 import os
 import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -673,3 +674,17 @@ def test_each_worker_gets_a_distinct_token(scratch, target, install_spawn, make_
     b = pool.open_session(str(target))
     assert a.token and b.token
     assert a.token != b.token
+
+
+def test_pool_startup_sweeps_dead_owner_scratch_dirs(tmp_path, monkeypatch):
+    scratch = tmp_path / "scratch"
+    monkeypatch.setenv("IDA_MCP_WORKER_SCRATCH", str(scratch))
+    stale = scratch / "stale"
+    stale.mkdir(parents=True)
+    dead = subprocess.Popen([sys.executable, "-c", "pass"])
+    dead.wait()
+    (stale / "owner.pid").write_text(str(dead.pid))
+
+    WorkerPool()
+
+    assert not stale.exists()

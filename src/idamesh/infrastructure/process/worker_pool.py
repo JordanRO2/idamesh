@@ -181,6 +181,15 @@ class WorkerPool:
         self._env = env
         self._sessions: "dict[str, WorkerSession]" = {}
         self._lock = threading.RLock()
+        # A previous supervisor that was hard-killed leaves its scratch dirs behind.
+        try:
+            from idamesh.infrastructure.process.scratch_copy import (
+                sweep_stale_session_dirs,
+            )
+
+            sweep_stale_session_dirs()
+        except Exception:  # noqa: BLE001 — never fail startup on cleanup
+            pass
 
     # -- public API ----------------------------------------------------------
 

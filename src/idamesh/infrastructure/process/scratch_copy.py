@@ -10,6 +10,7 @@ neighbours.
 Scratch layout (env ``IDA_MCP_WORKER_SCRATCH`` overrides the root)::
 
     <scratch_root>/<session_id>/<name>
+    <scratch_root>/<session_id>/owner.pid   (the supervisor pid, for stale sweeps)
 
 where ``<name>`` is the input's basename, or a cloned ``.i64``/``.idb`` sitting
 next to the input so the copy inherits prior analysis.
@@ -30,6 +31,9 @@ _DEFAULT_ROOT_NAME = "idamesh-workers"
 #: Sibling database extensions preferred over the raw input (they carry prior
 #: analysis, so cloning one lets the worker skip a full re-analysis).
 _DATABASE_SUFFIXES = (".i64", ".idb")
+
+#: File in each session dir recording the owning supervisor's pid.
+_OWNER_FILE = "owner.pid"
 
 #: Windows device names; opening one as a directory name hits the device, not the disk.
 _RESERVED_NAMES = frozenset(
@@ -128,6 +132,7 @@ def materialize_private_copy(session_id: str, input_path: str) -> Path:
     source = _preferred_source(src)
     dest_dir = session_dir(session_id)
     dest_dir.mkdir(parents=True, exist_ok=True)
+    (dest_dir / _OWNER_FILE).write_text(str(os.getpid()))
     dest = dest_dir / source.name
     # copyfile (not copy2) — we want only the bytes, not the source's mode/owner,
     # in a directory we already locked down.
@@ -160,3 +165,26 @@ def cleanup_session_dir(session_id: str) -> None:
     if target == root or target.parent != root:
         return
     shutil.rmtree(target, ignore_errors=True)
+
+
+def sweep_stale_session_dirs() -> None:
+    """Remove scratch dirs whose recorded owner supervisor is dead. Best-effort.
+
+    A hard-killed supervisor never runs its cleanup, so its session dirs leak. A
+    dir with no readable ``owner.pid`` (e.g. from an older version that may still
+    be running) is left alone.
+    """
+    from idamesh.infrastructure.process.parent_watchdog import parent_alive
+
+    try:
+        children = list(scratch_root().iterdir())
+    except OSError:
+        return
+    for child in children:
+        try:
+            pid = int((child / _OWNER_FILE).read_text().strip())
+        except (OSError, ValueError):
+            continue
+        # parent_alive() reports pid <= 0 as alive, so a bogus pid is never swept.
+        if not parent_alive(pid):
+            cleanup_session_dir(child.name)
