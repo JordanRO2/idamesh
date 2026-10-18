@@ -74,8 +74,10 @@ def register_export_funcs(
         start; ``count`` caps how many are returned (clamped to a server maximum).
         Each row carries just the function ``name`` and its entry ``address``
         (``0x`` hex). The result carries the ``total`` function count and a
-        ``truncated`` flag, plus a ``next_cursor`` when more remain, so a caller
-        can page through the whole set. Read-only."""
+        ``truncated`` flag; while ``truncated`` is true, request the next page with
+        ``offset`` advanced by the rows returned. ``count`` echoes the (clamped)
+        requested page size and ``next_cursor`` is currently always null: page by
+        ``offset``. Read-only."""
         command = ExportFuncsCommand(offset=offset, count=count)
         result = run_use_case(
             executor, lambda: export_funcs_use_case.execute(command)

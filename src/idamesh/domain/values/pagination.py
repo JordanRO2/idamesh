@@ -4,7 +4,9 @@ Every list-shaped tool speaks ``{offset, count}`` and returns a :class:`Page`
 carrying its items plus an opaque :class:`Cursor`. The cursor is tamper-evident:
 it stamps the next offset together with a hash of the originating arguments, so a
 cursor replayed against a different query is detectable rather than silently
-returning mismatched rows.
+returning mismatched rows. No tool accepts a cursor yet and no adapter mints
+one, so ``Page.next_cursor`` is always ``None`` and clients page by ``offset``;
+``Page.count`` is the (clamped) requested page size, not the rows returned.
 """
 
 from __future__ import annotations
