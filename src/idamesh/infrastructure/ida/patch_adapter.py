@@ -14,11 +14,17 @@ present.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from idamesh.domain.values.address import Address
+from idamesh.infrastructure.ida.cache.strings_cache import StringsCache
 
 
 class IdaPatchGateway:
     """:class:`~idamesh.domain.ports.patch.PatchGateway` over the IDA SDK."""
+
+    def __init__(self, strings_cache: Optional[StringsCache] = None) -> None:
+        self._strings_cache = strings_cache
 
     def patch_bytes(self, ea: Address, data: bytes) -> int:
         """Overwrite the bytes at ``ea`` with ``data``; return the count written.
@@ -33,6 +39,9 @@ class IdaPatchGateway:
 
         payload = bytes(data)
         ida_bytes.patch_bytes(int(ea), payload)
+        # Patched bytes may create or change strings the cached list predates.
+        if self._strings_cache is not None:
+            self._strings_cache.invalidate()
         return len(payload)
 
     def assemble(self, ea: Address, text: str) -> bytes:

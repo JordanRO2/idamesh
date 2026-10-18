@@ -103,3 +103,29 @@ def test_build_is_resilient_to_missing_sdk(monkeypatch):
     monkeypatch.setitem(sys.modules, "ida_bytes", types.SimpleNamespace(
         get_strlit_contents=lambda *a: None))
     assert StringsCache()._build() == ()
+
+
+def test_make_data_and_patch_invalidate_the_shared_cache(monkeypatch):
+    from idamesh.domain.values.address import Address
+    from idamesh.infrastructure.ida.data_definition_adapter import (
+        IdaDataDefinitionGateway,
+    )
+    from idamesh.infrastructure.ida.patch_adapter import IdaPatchGateway
+
+    fake_bytes = types.SimpleNamespace(
+        patch_bytes=lambda ea, data: None,
+        DELIT_SIMPLE=0,
+        del_items=lambda *a: True,
+        create_byte=lambda ea, size: True,
+        get_item_size=lambda ea: 1,
+    )
+    monkeypatch.setitem(sys.modules, "ida_bytes", fake_bytes)
+    cache = StringsCache()
+    cache._rows = ()
+
+    IdaPatchGateway(cache).patch_bytes(Address(0x10), b"A\x00")
+    assert cache._rows is None
+
+    cache._rows = ()
+    IdaDataDefinitionGateway(cache).make_data(Address(0x10), "", 1)
+    assert cache._rows is None

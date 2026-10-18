@@ -147,6 +147,7 @@ from idamesh.infrastructure.ida.search_adapter import IdaSearchGateway
 from idamesh.infrastructure.ida.script_adapter import IdaScriptGateway
 from idamesh.infrastructure.ida.snapshot_adapter import IdaSnapshotGateway
 from idamesh.infrastructure.ida.stack_adapter import IdaStackGateway
+from idamesh.infrastructure.ida.cache.strings_cache import StringsCache
 from idamesh.infrastructure.ida.strings_adapter import IdaStringsRepository
 from idamesh.infrastructure.ida.structs_adapter import IdaStructGateway
 from idamesh.infrastructure.ida.type_declaration_adapter import (
@@ -205,7 +206,8 @@ def build_worker_container(
     disassembly = IdaDisassemblyGateway()
     basic_blocks_gateway = IdaBasicBlockGateway()
     search = IdaSearchGateway()
-    strings_repo = IdaStringsRepository()
+    strings_cache = StringsCache()
+    strings_repo = IdaStringsRepository(strings_cache)
     memory = IdaMemoryGateway()
     listing_search = IdaListingSearchGateway()
     types_gateway = IdaTypeGateway()
@@ -213,8 +215,8 @@ def build_worker_container(
     naming_gateway = IdaNamingGateway()
     comment_gateway = IdaCommentGateway()
     type_mutation_gateway = IdaTypeMutationGateway()
-    patch_gateway = IdaPatchGateway()
-    data_definition_gateway = IdaDataDefinitionGateway()
+    patch_gateway = IdaPatchGateway(strings_cache)
+    data_definition_gateway = IdaDataDefinitionGateway(strings_cache)
     code_definition_gateway = IdaCodeDefinitionGateway()
     operand_gateway = IdaOperandGateway()
     instruction_gateway = IdaInstructionGateway()

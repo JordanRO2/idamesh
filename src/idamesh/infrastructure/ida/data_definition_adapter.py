@@ -22,9 +22,10 @@ performed lazily inside the method so this module loads without IDA present.
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 from idamesh.domain.values.address import Address
+from idamesh.infrastructure.ida.cache.strings_cache import StringsCache
 
 #: Native primitive widths mapped to the ``ida_bytes`` creator name and the label
 #: reported as the type in force when no declaration was supplied. Reproduced as
@@ -40,6 +41,9 @@ _PRIMITIVES: Dict[int, Tuple[str, str]] = {
 class IdaDataDefinitionGateway:
     """:class:`~idamesh.domain.ports.data_definition.DataDefinitionGateway` over the SDK."""
 
+    def __init__(self, strings_cache: Optional[StringsCache] = None) -> None:
+        self._strings_cache = strings_cache
+
     def make_data(self, ea: Address, type: str, size: int) -> Tuple[str, int]:
         """Define a data item at ``ea``; return ``(applied_type, item_size)``.
 
@@ -48,9 +52,13 @@ class IdaDataDefinitionGateway:
         already guaranteed exactly one of the two is usable, but each path guards
         its own precondition so a direct call is still safe.
         """
-        if type:
-            return self._define_typed(ea, type)
-        return self._define_sized(ea, size)
+        result = (
+            self._define_typed(ea, type) if type else self._define_sized(ea, size)
+        )
+        # A new data item can be a string the cached list predates.
+        if self._strings_cache is not None:
+            self._strings_cache.invalidate()
+        return result
 
     def _define_typed(self, ea: Address, decl: str) -> Tuple[str, int]:
         """Parse ``decl`` and apply it at ``ea``, defining a typed data item."""
