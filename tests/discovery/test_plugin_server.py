@@ -129,6 +129,9 @@ def test_plugin_entry_resolves_pluginserver_under_alien_globals(monkeypatch):
     fake.PLUGIN_KEEP = 3
     fake.msg = lambda *a, **k: None
     monkeypatch.setitem(sys.modules, "idaapi", fake)
+    kernwin = types.ModuleType("ida_kernwin")
+    kernwin.UI_Hooks = type("UI_Hooks", (), {"hook": lambda self: True, "unhook": lambda self: True})
+    monkeypatch.setitem(sys.modules, "ida_kernwin", kernwin)
 
     # Re-home PLUGIN_ENTRY into a foreign globals dict, as IDA effectively does.
     alien = types.FunctionType(PLUGIN_ENTRY.__code__, {"__builtins__": builtins})
@@ -222,3 +225,29 @@ def test_database_identity_separates_input_path_from_idb_path(monkeypatch):
         "C:/bins/target.exe",
         "C:/bins/target.exe.i64",
     )
+
+
+def test_refresh_identity_fills_the_record_once_a_database_is_open(tmp_path, monkeypatch):
+    registry = DiscoveryRegistry(tmp_path / "instances", alive_check=lambda pid: True)
+    config = PluginConfig(host="127.0.0.1", port=0, token="tok", autolaunch=False)
+    server = PluginServer(config, registry=registry)
+    server.start()  # no IDA here: identity reads empty, as at IDA startup
+    try:
+        assert registry.read_all()[0].idb_path is None
+        monkeypatch.setattr(
+            server,
+            "_database_identity",
+            lambda: ("Rag2.exe", "I:/old/Rag2.exe", "C:/new/Rag2.exe.i64"),
+        )
+
+        server.refresh_identity()
+
+        entry = registry.read_all()[0]
+        assert (entry.binary, entry.input_path, entry.idb_path) == (
+            "Rag2.exe",
+            "I:/old/Rag2.exe",
+            "C:/new/Rag2.exe.i64",
+        )
+        assert entry.session_id == server.session_id  # routing id stays stable
+    finally:
+        server.stop()

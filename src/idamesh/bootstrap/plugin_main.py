@@ -219,6 +219,19 @@ class PluginServer:
         self._started = True
         return self
 
+    def refresh_identity(self) -> None:
+        """Rewrite the discovery record with the now-open database's identity.
+
+        ``init`` runs at IDA startup (``PLUGIN_FIX``), before any database is
+        loaded, so the first registration carries an empty identity. Best-effort.
+        """
+        if not self._started:
+            return
+        try:
+            self._register(*self._database_identity())
+        except Exception:  # noqa: BLE001 — identity is informational only
+            pass
+
     def stop(self) -> None:
         """Remove the discovery record and shut the transport down (never raises)."""
         try:
@@ -362,6 +375,16 @@ def PLUGIN_ENTRY():  # noqa: N802 — IDA's required entry-point symbol
 
     server = PluginServer()
 
+    import ida_kernwin
+
+    class _DatabaseHooks(ida_kernwin.UI_Hooks):
+        """Refresh the discovery identity each time a database finishes loading."""
+
+        def database_inited(self, is_new_database, idc_script):
+            server.refresh_identity()
+
+    hooks = _DatabaseHooks()
+
     class IdameshPlugin(idaapi.plugin_t):
         """A resident plugin that serves MCP over the live database."""
 
@@ -385,6 +408,7 @@ def PLUGIN_ENTRY():  # noqa: N802 — IDA's required entry-point symbol
                 except Exception:  # noqa: BLE001
                     pass
                 return idaapi.PLUGIN_SKIP
+            hooks.hook()
             try:
                 idaapi.msg(
                     f"[idamesh] MCP endpoint on {server.config.host}:"
@@ -398,6 +422,7 @@ def PLUGIN_ENTRY():  # noqa: N802 — IDA's required entry-point symbol
             return None
 
         def term(self):
+            hooks.unhook()
             server.stop()
 
     return IdameshPlugin()
