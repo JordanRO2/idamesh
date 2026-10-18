@@ -37,6 +37,13 @@ def test_falls_back_to_replacing_form(tmp_path):
     assert _preferred_source(exe) == alt
 
 
+def test_replacing_form_ignored_when_another_binary_shares_the_stem(tmp_path):
+    dll = _touch(tmp_path / "program.dll")
+    _touch(tmp_path / "program.exe")
+    _touch(tmp_path / "program.i64")  # may belong to program.exe
+    assert _preferred_source(dll) == dll
+
+
 def test_append_form_wins_over_replacing_form(tmp_path):
     exe = _touch(tmp_path / "program.exe")
     _touch(tmp_path / "program.i64")

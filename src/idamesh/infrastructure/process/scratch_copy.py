@@ -20,6 +20,7 @@ The signatures are stable so the pool and its tests can rely on them.
 
 from __future__ import annotations
 
+import glob
 import os
 import shutil
 import tempfile
@@ -90,6 +91,20 @@ def session_dir(session_id: str) -> Path:
     return scratch_root() / _validate_segment(session_id)
 
 
+def _shares_stem(input_path: Path) -> bool:
+    """Whether another non-database file next to ``input_path`` has the same stem."""
+    try:
+        siblings = list(input_path.parent.glob(glob.escape(input_path.stem) + ".*"))
+    except OSError:
+        return True  # cannot tell: treat as ambiguous
+    return any(
+        p != input_path
+        and p.suffix.lower() not in _DATABASE_SUFFIXES
+        and p.is_file()
+        for p in siblings
+    )
+
+
 def _preferred_source(input_path: Path) -> Path:
     """The file to clone: a sibling ``.i64``/``.idb`` if present, else the input.
 
@@ -99,17 +114,20 @@ def _preferred_source(input_path: Path) -> Path:
     *appending* the suffix to the full input name (``program.exe`` ->
     ``program.exe.i64``), so the append form is tried first; the extension-replacing
     form (``program.exe`` -> ``program.i64``) is tried as a fallback for setups that
-    use it.
+    use it, but only when no other file shares the stem (``program.dll`` next to
+    ``program.exe`` makes ``program.i64`` ambiguous: it may be the other binary's).
     """
     if input_path.suffix.lower() in _DATABASE_SUFFIXES:
         return input_path
     candidates = [
         input_path.with_name(input_path.name + suffix)  # program.exe.i64 (IDA convention)
         for suffix in _DATABASE_SUFFIXES
-    ] + [
-        input_path.with_suffix(suffix)  # program.i64 (extension-replacing fallback)
-        for suffix in _DATABASE_SUFFIXES
     ]
+    if not _shares_stem(input_path):
+        candidates += [
+            input_path.with_suffix(suffix)  # program.i64 (extension-replacing fallback)
+            for suffix in _DATABASE_SUFFIXES
+        ]
     for candidate in candidates:
         if candidate != input_path and candidate.is_file():
             return candidate
