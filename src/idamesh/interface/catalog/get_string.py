@@ -54,7 +54,8 @@ def register_get_string(
         hexadecimal literal (``0x…``), a decimal literal, or a symbol name; it is
         resolved first. At most ``max_length`` bytes are scanned, auto-detecting
         the terminator and encoding. The result reports the resolved ``address``
-        (``0x`` hex), the decoded ``value``, and its byte ``length``. An
+        (``0x`` hex), the decoded ``value``, and its ``length`` in characters (not
+        bytes: it can be smaller than the byte count for multi-byte text). An
         out-of-range or unresolvable address, or the absence of a string, yields an
         error result rather than failing the protocol request."""
         command = GetStringCommand(address=address, max_length=max_length)

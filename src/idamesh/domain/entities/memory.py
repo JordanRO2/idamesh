@@ -46,7 +46,7 @@ class IntRead:
 @dataclass(frozen=True)
 class StringRead:
     """A string read from memory: its start ``address``, decoded ``value``, and
-    the byte ``length`` consumed."""
+    ``length`` in decoded characters."""
 
     address: Address
     value: str
