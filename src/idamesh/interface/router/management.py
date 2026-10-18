@@ -165,8 +165,9 @@ def management_tool_objects() -> List[Dict[str, Any]]:
         "idb_open, before any edit) so only genuine human edits remain, resolves "
         "same-address conflicts under the chosen policy, then "
         "(unless dry_run) applies the merged annotations into a target session and "
-        "writes a compressed .i64 snapshot. Under the default 'manual' policy an "
-        "unresolved conflict aborts the write with a report to review.",
+        "writes a compressed .i64 snapshot. Under every policy an unresolved "
+        "conflict aborts the write with a report to review; 'prefer' leaves a "
+        "conflict unresolved when the preferred session has no value at that key.",
         {
             "type": "object",
             "properties": {
@@ -198,7 +199,9 @@ def management_tool_objects() -> List[Dict[str, Any]]:
                     "description": (
                         "Same-address conflict policy: 'manual' leaves conflicts "
                         "unresolved (and refuses the write), 'first'/'last' take the "
-                        "earliest/latest contributor, 'prefer' takes 'prefer''s value."
+                        "earliest/latest contributor, 'prefer' takes 'prefer''s value "
+                        "but leaves a conflict unresolved (refusing the write) when "
+                        "that session has no value at the key; use first/last then."
                     ),
                 },
                 "prefer": {

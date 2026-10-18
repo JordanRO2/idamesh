@@ -634,6 +634,8 @@ def test_manual_policy_refuses_write_while_conflicts_unresolved():
 
     assert "error" in result
     assert "manual" in result["error"]
+    assert "policy=first|last" in result["error"]
+    assert "policy=first|last|prefer" not in result["error"]
     # The unresolved conflict is surfaced in the refusal body...
     assert result["conflicts"][0]["ea"] == 0x402000
     assert result["sessions"] == ["sess-1", "sess-2"]

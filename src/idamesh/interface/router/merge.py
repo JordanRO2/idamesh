@@ -307,7 +307,8 @@ class MergeOrchestrator:
             return {
                 "error": (
                     "merge refused: unresolved conflicts under "
-                    f"'{request.policy.value}' policy; review them and rerun with policy=first|last|prefer"
+                    f"'{request.policy.value}' policy; review them and rerun with policy=first|last "
+                    "(or a different prefer session that has a value there)"
                 ),
                 **common,
             }
