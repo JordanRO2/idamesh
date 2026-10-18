@@ -47,7 +47,7 @@ from idamesh.interface.router.merge import MergeOrchestrator
 SHA = "a" * 64
 IMAGEBASE = 0x400000
 INPUT_PATH = "/scratch/copy/target.exe"
-CANONICAL_SNAPSHOT = "/scratch/copy/target.merged.i64"
+CANONICAL_SNAPSHOT = "/scratch/copy/target.exe.merged.i64"
 
 # Tool names the orchestrator drives over the client (mirrors merge.py constants).
 EXPORT = "export_annotations"
@@ -551,6 +551,18 @@ def test_apply_writes_into_first_source_and_snapshots_canonical_path():
     assert len(snap_calls) == 1
     assert snap_calls[0]["arguments"]["path"] == CANONICAL_SNAPSHOT
     assert other.calls_named(SNAPSHOT) == []
+
+
+def test_canonical_snapshot_path_keeps_the_input_extension():
+    class _Target:
+        def __init__(self, input_path: str) -> None:
+            self.input_path = input_path
+
+    exe = merge_module._canonical_snapshot_path(_Target("/scratch/foo.exe"))
+    dll = merge_module._canonical_snapshot_path(_Target("/scratch/foo.dll"))
+
+    assert exe == "/scratch/foo.exe.merged.i64"
+    assert exe != dll
 
 
 def test_apply_targets_explicit_into_session():

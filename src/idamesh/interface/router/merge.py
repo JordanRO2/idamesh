@@ -815,10 +815,10 @@ def _path_matches(path: str, session: SessionView) -> bool:
 
 
 def _canonical_snapshot_path(target: SessionView) -> str:
-    """The default ``<input>.merged.i64`` destination for an applied merge."""
+    """The default ``<input><ext>.merged.i64`` destination for an applied merge."""
     input_path = getattr(target, "input_path", "") or "target"
-    root, _ext = os.path.splitext(input_path)
-    return f"{root}{_MERGED_SUFFIX}"
+    # Keep the extension so foo.exe and foo.dll do not collide on foo.merged.i64.
+    return f"{input_path}{_MERGED_SUFFIX}"
 
 
 __all__ = ["MergeOrchestrator", "MergeRequest", "MergeError"]
