@@ -20,7 +20,11 @@ from idamesh.domain.entities.function import Function
 from idamesh.domain.ports.database import DatabaseGateway
 from idamesh.domain.ports.functions import FunctionRepository
 from idamesh.domain.ports.instruction_decode import InstructionDecodeGateway
-from idamesh.domain.services.data_flow import DataFlowService
+from idamesh.domain.services.data_flow import (
+    DIRECTION_BACKWARD,
+    DIRECTION_FORWARD,
+    DataFlowService,
+)
 from idamesh.domain.values.address import Selector
 
 
@@ -50,6 +54,11 @@ class TraceDataFlowUseCase:
 
     def execute(self, command: TraceDataFlowCommand) -> TraceDataFlowResult:
         """Resolve the anchor, decode its function, and run the def-use trace."""
+        if command.direction not in (DIRECTION_FORWARD, DIRECTION_BACKWARD):
+            raise ValueError(
+                f"unknown direction {command.direction!r}: "
+                f"expected {DIRECTION_FORWARD!r} or {DIRECTION_BACKWARD!r}"
+            )
         func = self._resolve_function(command.address)
         anchor = self._database.resolve(Selector.parse(command.address))
         instructions = self._decoder.decode_function(func.ea)

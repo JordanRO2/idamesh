@@ -594,6 +594,13 @@ def test_use_case_backward_direction_is_passed_through():
     assert _trace_tuples(result.steps) == [(0x1000, NOTE_DEF, None)]
 
 
+def test_use_case_rejects_unknown_direction():
+    use_case, _ = _use_case(_sample_instructions(), func=_sample_function())
+
+    with pytest.raises(ValueError, match="sideways"):
+        use_case.execute(TraceDataFlowCommand(address="0x1000", direction="sideways"))
+
+
 def test_use_case_resolves_a_symbol_selector():
     use_case, decoder = _use_case(
         _sample_instructions(), func=_sample_function(), symbols={"start": 0x1000}
