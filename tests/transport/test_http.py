@@ -196,3 +196,15 @@ def test_absent_protocol_version_falls_back_to_default(fake_dispatcher, http_ser
     status, _headers, _body = _post(port, REQUEST)
     assert status == 200
     assert fake_dispatcher.calls[-1].protocol_version == "2025-03-26"
+
+
+def test_second_server_on_a_taken_port_scans_upward(fake_dispatcher, http_server):
+    from idamesh.infrastructure.transport.http import HttpTransport
+
+    first = http_server(fake_dispatcher)
+    second = HttpTransport(fake_dispatcher, port=first.bound_port)
+    second.serve(block=False)
+    try:
+        assert second.bound_port != first.bound_port
+    finally:
+        second.stop()

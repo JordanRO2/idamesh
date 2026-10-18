@@ -11,6 +11,7 @@ token, the ``MCP-Session-Id`` lifecycle, and the ``MCP-Protocol-Version`` header
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -71,7 +72,8 @@ class _McpHTTPServer(ThreadingHTTPServer):
     """A threading HTTP server carrying a back-reference to its transport."""
 
     daemon_threads = True
-    allow_reuse_address = True
+    # On Windows SO_REUSEADDR lets a second server bind a port already in use.
+    allow_reuse_address = os.name != "nt"
 
     def __init__(self, address, handler, transport: "HttpTransport") -> None:
         self.transport = transport
