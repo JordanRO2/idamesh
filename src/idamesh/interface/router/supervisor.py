@@ -55,8 +55,9 @@ from idamesh.interface.router.ports import (
     WorkerPoolPort,
 )
 
-#: Matches the worker ``OverflowStore`` default: older refs are evicted there anyway.
-_MAX_OVERFLOW_OWNERS = 128
+#: Per owning session; matches the worker ``OverflowStore`` default (each worker
+#: evicts its own older refs there anyway).
+_MAX_OVERFLOW_OWNERS_PER_SESSION = 128
 
 
 def _text_block(message: str) -> Dict[str, Any]:
@@ -290,6 +291,10 @@ class SupervisorRouter:
             closed = bool(self._pool.close_session(session_id))
         except Exception as exc:  # noqa: BLE001 — pool errors are tool-level
             return _error_result(str(exc))
+        if closed:
+            with self._overflow_lock:
+                for uri in [u for u, s in self._overflow_owners.items() if s == session_id]:
+                    del self._overflow_owners[uri]
         return _ok_result({"session_id": session_id, "closed": closed})
 
     # -- forwarding ----------------------------------------------------------
@@ -313,8 +318,9 @@ class SupervisorRouter:
             owners = self._overflow_owners
             owners.pop(uri, None)
             owners[uri] = session_id
-            while len(owners) > _MAX_OVERFLOW_OWNERS:
-                owners.pop(next(iter(owners)))
+            mine = [u for u, s in owners.items() if s == session_id]
+            for old in mine[: max(0, len(mine) - _MAX_OVERFLOW_OWNERS_PER_SESSION)]:
+                del owners[old]
 
     def _forward(
         self, session: SessionView, method: str, params: Mapping[str, Any], label: str

@@ -46,7 +46,10 @@ from idamesh.interface.mcp.engine import (
 )
 from idamesh.interface.mcp.registry import Registry
 from idamesh.interface.router.management import DATABASE_ARG, MANAGEMENT_TOOL_NAMES
-from idamesh.interface.router.supervisor import SupervisorRouter
+from idamesh.interface.router.supervisor import (
+    _MAX_OVERFLOW_OWNERS_PER_SESSION,
+    SupervisorRouter,
+)
 
 # --------------------------------------------------------------------------- #
 # Fakes: worker sessions + pool (satisfy the SessionView / WorkerPoolPort ports)
@@ -756,6 +759,30 @@ def test_overflow_ref_read_is_routed_to_the_owning_session(router, pool, hub):
     read = endpoint_b.tool_calls[-1]["frame"]
     assert read["method"] == "resources/read"
     assert read["params"] == {"uri": ref}
+
+
+def test_overflow_owner_cap_is_per_session(router):
+    cap = _MAX_OVERFLOW_OWNERS_PER_SESSION
+    # Another session's refs must survive one chatty session overflowing its cap.
+    router._remember_overflow("mcpref://overflow/other", "sess-b")
+    for i in range(cap + 5):
+        router._remember_overflow(f"mcpref://overflow/a{i}", "sess-a")
+
+    owners = router._overflow_owners
+    assert owners["mcpref://overflow/other"] == "sess-b"
+    assert sum(1 for s in owners.values() if s == "sess-a") == cap
+    assert "mcpref://overflow/a0" not in owners  # oldest of the same session evicted
+    assert f"mcpref://overflow/a{cap + 4}" in owners
+
+
+def test_idb_close_drops_the_closed_sessions_overflow_refs(router, pool):
+    pool.add(FakeSession("sess-a", "127.0.0.1", 45001))
+    router._remember_overflow("mcpref://overflow/a", "sess-a")
+    router._remember_overflow("mcpref://overflow/b", "sess-b")
+
+    router._tool_idb_close({"session_id": "sess-a"})
+
+    assert router._overflow_owners == {"mcpref://overflow/b": "sess-b"}
 
 
 # --------------------------------------------------------------------------- #
