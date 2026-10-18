@@ -19,7 +19,8 @@ One record::
       "host": "127.0.0.1", "port": 13337,
       "token": "…",                  # bearer to present when forwarding here
       "pid": 12345,
-      "binary": "target.exe", "idb_path": "…/target.exe",
+      "binary": "target.exe", "input_path": "…/target.exe",
+      "idb_path": "…/target.exe.i64",   # input_path is optional (older records lack it)
       "started_at": "<iso-8601 utc>" }
 
 Writes are atomic (temp file + :func:`os.replace`). Reads *self-heal*: a record is
@@ -109,6 +110,7 @@ class DiscoveryEntry:
     pid: Optional[int] = None
     binary: Optional[str] = None
     idb_path: Optional[str] = None
+    input_path: Optional[str] = None
     started_at: str = field(default_factory=_utc_now_iso)
 
     def to_dict(self) -> dict:
@@ -122,6 +124,7 @@ class DiscoveryEntry:
             "pid": self.pid,
             "binary": self.binary,
             "idb_path": self.idb_path,
+            "input_path": self.input_path,
             "started_at": self.started_at,
         }
 
@@ -162,6 +165,7 @@ class DiscoveryEntry:
             pid=pid,
             binary=_opt_str(data.get("binary")),
             idb_path=_opt_str(data.get("idb_path")),
+            input_path=_opt_str(data.get("input_path")),
             started_at=_opt_str(data.get("started_at")) or _utc_now_iso(),
         )
 

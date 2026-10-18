@@ -43,8 +43,8 @@ class DiscoveredSession:
         self.host = entry.host
         self.port = entry.port
         self.token = entry.token
-        # Prefer the concrete idb/binary path for display; fall back to the name.
-        self.input_path = entry.idb_path or entry.binary or ""
+        # Prefer the input file path; older records only carry idb_path/binary.
+        self.input_path = entry.input_path or entry.idb_path or entry.binary or ""
 
     @property
     def backend(self) -> str:
@@ -65,6 +65,7 @@ class DiscoveredSession:
         return {
             "session_id": self.session_id,
             "input_path": self.input_path,
+            "idb_path": self._entry.idb_path or "",
             "filename": self.filename,
             "private_copy_path": "",
             "backend": self._entry.backend,

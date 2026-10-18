@@ -201,3 +201,24 @@ def test_start_stops_transport_when_registration_fails(tmp_path):
         server.start()
     assert server.is_running is False
     assert server._transport is None  # listener was shut down, not leaked
+
+
+def test_database_identity_separates_input_path_from_idb_path(monkeypatch):
+    import sys
+    import types
+
+    nalt = types.ModuleType("ida_nalt")
+    nalt.get_input_file_path = lambda: "C:/bins/target.exe"
+    nalt.get_root_filename = lambda: "target.exe"
+    loader = types.ModuleType("ida_loader")
+    loader.PATH_TYPE_IDB = 1
+    loader.get_path = lambda kind: "C:/bins/target.exe.i64" if kind == 1 else ""
+    monkeypatch.setitem(sys.modules, "ida_nalt", nalt)
+    monkeypatch.setitem(sys.modules, "ida_loader", loader)
+
+    server = PluginServer(PluginConfig("127.0.0.1", 0, "t", False))
+    assert server._database_identity() == (
+        "target.exe",
+        "C:/bins/target.exe",
+        "C:/bins/target.exe.i64",
+    )

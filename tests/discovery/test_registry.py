@@ -258,3 +258,31 @@ def test_transient_read_error_keeps_the_record(reg_dir, monkeypatch):
     monkeypatch.setattr(type(path), "read_text", locked)
     assert reg.read_all() == []
     assert path.exists()  # a locked file is not corrupt: do not delete it
+
+
+# --------------------------------------------------------------------------- #
+# input_path vs idb_path
+# --------------------------------------------------------------------------- #
+
+
+def test_input_path_round_trips_and_old_records_still_load(reg_dir):
+    reg = DiscoveryRegistry(reg_dir, alive_check=lambda pid: True)
+    entry = _entry("gui-new", port=1, idb_path="C:/bins/target.exe.i64")
+    entry.input_path = "C:/bins/target.exe"
+    reg.write(entry)
+    assert reg.find_by_session("gui-new").input_path == "C:/bins/target.exe"
+
+    old = _entry("gui-old", port=2).to_dict()
+    del old["input_path"]  # record written by an older plugin
+    (reg_dir / "instance_2.json").write_text(json.dumps(old))
+    got = reg.find_by_session("gui-old")
+    assert got.input_path is None
+    assert DiscoveredSession(got).input_path == "C:/bins/target.exe"  # falls back to idb_path
+
+
+def test_discovered_session_prefers_input_path_and_exposes_idb_path():
+    entry = _entry("gui-x", idb_path="C:/bins/target.exe.i64")
+    entry.input_path = "C:/bins/target.exe"
+    info = DiscoveredSession(entry).to_info()
+    assert info["input_path"] == "C:/bins/target.exe"
+    assert info["idb_path"] == "C:/bins/target.exe.i64"

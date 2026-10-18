@@ -204,10 +204,10 @@ class PluginServer:
         self._transport = transport
         self._bound_port = transport.bound_port
 
-        binary, idb_path = self._database_identity()
+        binary, input_path, idb_path = self._database_identity()
         self._session_id = f"gui-{_safe_stem(binary or 'idb')}-{secrets.token_hex(3)}"
         try:
-            self._register(binary, idb_path)
+            self._register(binary, input_path, idb_path)
         except BaseException:
             # Unreachable via discovery: don't leave the listener running.
             self.stop()
@@ -242,7 +242,7 @@ class PluginServer:
         self._registry = DiscoveryRegistry()
         return self._registry
 
-    def _register(self, binary: str, idb_path: str) -> None:
+    def _register(self, binary: str, input_path: str, idb_path: str) -> None:
         from idamesh.infrastructure.discovery import BACKEND_GUI, DiscoveryEntry
 
         entry = DiscoveryEntry(
@@ -254,6 +254,7 @@ class PluginServer:
             pid=os.getpid(),
             binary=binary or None,
             idb_path=idb_path or None,
+            input_path=input_path or None,
         )
         self._discovery_registry().write(entry)
 
@@ -267,20 +268,22 @@ class PluginServer:
 
     # -- IDA-side reads (lazy SDK) ------------------------------------------
 
-    def _database_identity(self) -> Tuple[str, str]:
-        """The open database's ``(binary_name, input_path)`` (best-effort).
+    def _database_identity(self) -> Tuple[str, str, str]:
+        """The open database's ``(binary_name, input_path, idb_path)`` (best-effort).
 
         Wrapped so a headless/odd environment (or a call before a database is
         loaded) yields empty strings rather than failing the whole start.
         """
         try:
+            import ida_loader
             import ida_nalt
 
-            idb_path = ida_nalt.get_input_file_path() or ""
-            binary = ida_nalt.get_root_filename() or os.path.basename(idb_path)
-            return binary or "", idb_path or ""
+            input_path = ida_nalt.get_input_file_path() or ""
+            binary = ida_nalt.get_root_filename() or os.path.basename(input_path)
+            idb_path = ida_loader.get_path(ida_loader.PATH_TYPE_IDB) or ""
+            return binary or "", input_path, idb_path
         except Exception:  # noqa: BLE001 — identity is informational only
-            return "", ""
+            return "", "", ""
 
     # -- opt-in supervisor auto-launch --------------------------------------
 
