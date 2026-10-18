@@ -31,8 +31,10 @@ def register_core(
     def get_metadata() -> MetadataView:
         """Describe the loaded database: input file identity, processor and
         bitness, byte order, entry point and image base, and coarse counts of
-        functions and segments. Call this first to orient on an unfamiliar
-        target before enumerating or decompiling anything."""
+        functions and segments. ``string_count`` is currently always null (the
+        string list is built on demand; use ``list_strings`` for strings). Call
+        this first to orient on an unfamiliar target before enumerating or
+        decompiling anything."""
         result = run_use_case(
             executor, lambda: metadata_use_case.execute(GetMetadataCommand())
         )

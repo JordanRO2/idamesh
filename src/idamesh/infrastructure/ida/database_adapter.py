@@ -60,7 +60,7 @@ class IdaDatabaseGateway:
             image_base=image_base,
             function_count=function_count,
             segment_count=segment_count,
-            string_count=None,
+            string_count=None,  # strlist is unbuilt until list_strings; not cheap
             compiler=self._compiler(),
             filetype=self._filetype(),
             sha256=self._sha256(),

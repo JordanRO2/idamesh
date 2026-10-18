@@ -33,7 +33,7 @@ class DatabaseMetadata:
     image_base: Address | None = None
     function_count: int = 0
     segment_count: int = 0
-    string_count: int | None = None
+    string_count: int | None = None  # always None for now; see get_metadata
     compiler: str | None = None
     filetype: str | None = None
     sha256: str | None = None
