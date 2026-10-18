@@ -189,6 +189,16 @@ def test_r4_silent_when_size_is_a_compile_time_constant(size: str):
     assert _analyze(f"memcpy(dst, src, {size});") == []
 
 
+@pytest.mark.parametrize("size", ["8 * n", "0x10 + len", "n * sizeof(int)", "16abc"])
+def test_r4_flags_size_expressions_mixing_in_a_variable(size: str):
+    assert _kinds(_analyze(f"memcpy(dst, src, {size});")) == [KIND_BUFFER_OVERFLOW]
+
+
+@pytest.mark.parametrize("size", ["4 * sizeof(buf)", "0x10 + 8"])
+def test_r4_silent_for_pure_constant_arithmetic(size: str):
+    assert _analyze(f"memcpy(dst, src, {size});") == []
+
+
 def test_r4_covers_memmove():
     assert _kinds(_analyze("memmove(a, b, n);")) == [KIND_BUFFER_OVERFLOW]
 

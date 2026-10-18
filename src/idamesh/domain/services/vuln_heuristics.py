@@ -76,8 +76,12 @@ _MEMORY_MOVE: Tuple[str, ...] = ("memcpy", "memmove", "bcopy", "wmemcpy")
 
 #: Matches an identifier immediately followed by an opening parenthesis — a call.
 _CALL_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(")
-#: A compile-time-constant size expression (decimal, hex, or ``sizeof``).
-_CONST_SIZE_RE = re.compile(r"\A(0[xX][0-9a-fA-F]+|[0-9]+[uUlL]*|sizeof\b)")
+#: A ``sizeof(...)`` operand (no nested parentheses), folded to a literal first.
+_SIZEOF_RE = re.compile(r"sizeof\s*\([^()]*\)")
+#: A compile-time-constant size expression: only literals and arithmetic operators.
+_CONST_SIZE_RE = re.compile(
+    r"(?:0[xX][0-9a-fA-F]+[uUlL]*|[0-9]+[uUlL]*|[-+*/%()<>|&^~\s])+"
+)
 
 
 class VulnHeuristicsService:
@@ -289,4 +293,4 @@ class VulnHeuristicsService:
     @staticmethod
     def _is_constant_size(arg: str) -> bool:
         """``True`` when a size argument is a compile-time constant expression."""
-        return bool(_CONST_SIZE_RE.match(arg.strip()))
+        return bool(_CONST_SIZE_RE.fullmatch(_SIZEOF_RE.sub("1", arg.strip())))
