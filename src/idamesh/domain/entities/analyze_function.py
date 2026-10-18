@@ -28,6 +28,7 @@ class FunctionAnalysis:
     profile: FuncProfile
     pseudocode: Pseudocode
     callers: Tuple[Xref, ...] = ()
+    callers_truncated: bool = False
     callees: Tuple[Xref, ...] = ()
     import_references: Tuple[str, ...] = ()
     string_literals: Tuple[str, ...] = ()

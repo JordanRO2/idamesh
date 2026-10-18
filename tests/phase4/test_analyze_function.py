@@ -36,6 +36,7 @@ from idamesh.application.contexts.analyze_function import (
 from idamesh.application.contexts.decompiler import DecompileUseCase
 from idamesh.application.contexts.func_profile import FuncProfileUseCase
 from idamesh.application.contexts.xrefs import CalleesUseCase, XrefsToUseCase
+from idamesh.application.dto.xrefs import XREFS_TO_LIMIT
 from idamesh.application.dto.analyze_function import (
     AnalyzeFunctionCommand,
     AnalyzeFunctionResult,
@@ -536,6 +537,7 @@ def test_view_projects_the_flat_wire_shape():
     }
     assert view["pseudocode"].startswith("void process_data()")
     assert view["lines"] == ["void process_data()", "{", '  puts("hi");', "}"]
+    assert view["callers_truncated"] is False
     assert view["callers"] == [
         {
             "from": "0x400f00",
@@ -561,6 +563,37 @@ def test_view_projects_the_flat_wire_shape():
 def test_view_typed_dict_keys_match_the_projection():
     view = analyze_function_view(AnalyzeFunctionResult(analysis=_analysis_fixture()))
     assert set(view.keys()) == set(AnalyzeFunctionView.__annotations__)
+
+
+def test_interior_address_anchors_callers_at_the_function_entry():
+    use_case, _ = _default_scenario()
+
+    analysis = use_case.execute(AnalyzeFunctionCommand(address="0x401024")).analysis
+
+    assert analysis.profile.address == Address(ENTRY)
+    assert [edge.source_func for edge in analysis.callers] == ["main", "init"]
+    assert len(analysis.callers) == analysis.profile.caller_count
+    assert analysis.callers_truncated is False
+
+
+def test_callers_truncation_is_flagged_when_the_cap_elides_edges():
+    func = Function(ea=Address(ENTRY), name="hot", size=0x10, end_ea=Address(ENTRY + 0x10))
+    refs = [_caller_edge(0x500000 + i * 8, ENTRY, f"c{i}") for i in range(XREFS_TO_LIMIT + 5)]
+    use_case = _build_use_case(
+        functions=_FakeFunctions([func]),
+        xrefs=_FakeXrefs(refs_to={ENTRY: refs}),
+        blocks=_FakeBlocks({ENTRY: []}),
+        decompiler=_FakeDecompiler(
+            {ENTRY: Pseudocode(ea=Address(ENTRY), text="", lines=())}
+        ),
+        imports=_FakeImports([]),
+        database=_FakeDatabase(),
+    )
+
+    analysis = use_case.execute(AnalyzeFunctionCommand(address="0x401000")).analysis
+
+    assert len(analysis.callers) == XREFS_TO_LIMIT
+    assert analysis.callers_truncated is True
 
 
 # -- catalog registration ---------------------------------------------------

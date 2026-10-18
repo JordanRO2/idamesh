@@ -69,14 +69,17 @@ class AnalyzeFunctionUseCase:
         profile = self._func_profile.execute(
             FuncProfileCommand(address=address)
         ).profile
+        # Anchor the remaining delegates at the entry (as the profile does):
+        # callers are references to the entry, so an interior address would
+        # otherwise find none.
+        entry = profile.address.hex()
         pseudocode = self._decompile.execute(
-            DecompileCommand(address=address)
+            DecompileCommand(address=entry)
         ).pseudocode
-        callers = tuple(
-            self._xrefs_to.execute(XrefsToCommand(address=address)).xrefs
-        )
+        xrefs_to = self._xrefs_to.execute(XrefsToCommand(address=entry))
+        callers = tuple(xrefs_to.xrefs)
         callees = tuple(
-            self._callees.execute(CalleesCommand(address=address)).callees
+            self._callees.execute(CalleesCommand(address=entry)).callees
         )
 
         import_references = self._import_references(callees)
@@ -86,6 +89,7 @@ class AnalyzeFunctionUseCase:
             profile=profile,
             pseudocode=pseudocode,
             callers=callers,
+            callers_truncated=xrefs_to.truncated,
             callees=callees,
             import_references=import_references,
             string_literals=string_literals,

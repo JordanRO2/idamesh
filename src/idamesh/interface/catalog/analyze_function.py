@@ -35,6 +35,7 @@ class AnalyzeFunctionView(TypedDict):
     pseudocode: str
     lines: List[str]
     callers: List[XrefView]
+    callers_truncated: bool
     callees: List[XrefView]
     import_references: List[str]
     string_literals: List[str]
@@ -62,6 +63,7 @@ def analyze_function_view(result: AnalyzeFunctionResult) -> AnalyzeFunctionView:
         pseudocode=analysis.pseudocode.text,
         lines=list(analysis.pseudocode.lines),
         callers=[xref_view(edge) for edge in analysis.callers],
+        callers_truncated=analysis.callers_truncated,
         callees=[xref_view(edge) for edge in analysis.callees],
         import_references=list(analysis.import_references),
         string_literals=list(analysis.string_literals),
@@ -85,7 +87,8 @@ def register_analyze_function(
         to its owning function first. The report bundles the function's
         ``name`` and compact ``profile`` (byte ``size``, control-flow block and
         edge counts, caller and callee degree), its decompiled ``pseudocode``
-        (also split into ``lines``), the inbound ``callers`` and outbound
+        (also split into ``lines``), the inbound ``callers`` (capped, with
+        ``callers_truncated`` set when the cap elided some) and outbound
         ``callees`` cross-reference edges, the ``import_references`` (callee names
         that are imported symbols), and the ``string_literals`` surfaced in the
         pseudocode. An unresolvable address, an address in no function, or an
