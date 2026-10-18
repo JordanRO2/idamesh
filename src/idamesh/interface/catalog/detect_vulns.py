@@ -79,7 +79,7 @@ def register_detect_vulns(
         finding with its ``address`` (``0x`` hex, the enclosing function entry),
         the ``function`` name, a ``kind`` (``buffer_overflow`` / ``format_string``
         / ``command_injection`` / …), a ``severity`` band, and a ``description``
-        that names the rule that fired. Pass an ``address`` (hex/decimal/symbol) to
+        that names the rule that fired. Pass an ``address`` (hex/decimal/symbol; bare digits are decimal, hex needs ``0x``) to
         scope the scan to the one function containing it; omit it to scan the whole
         database, bounded to the functions that reach a dangerous API (``truncated``
         is set when that bound left functions out; ``skipped`` counts functions

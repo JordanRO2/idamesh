@@ -78,7 +78,7 @@ def register_trace_data_flow(
         """Trace the value at an instruction operand through one function, bounded.
 
         Follows the register or stack slot named by ``operand`` at ``address``
-        (hex/decimal/symbol) through the containing function's decoded
+        (hex/decimal/symbol; bare digits are decimal, hex needs ``0x``) through the containing function's decoded
         instructions: ``forward`` reports its subsequent uses, ``mov``
         propagations, in-place transforms, and the redefinition that kills it;
         ``backward`` reports the writes that defined it, hopping to a source

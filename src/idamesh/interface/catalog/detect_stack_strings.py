@@ -74,7 +74,7 @@ def register_detect_stack_strings(
         printable, and reconstructs each run into a string — a common
         obfuscation / anti-static technique. Reports each as a ``value`` with its
         ``address`` (``0x`` hex, the first store that contributes to it) and the
-        enclosing ``function``. Pass an ``address`` (hex/decimal/symbol) to scope
+        enclosing ``function``. Pass an ``address`` (hex/decimal/symbol; bare digits are decimal, hex needs ``0x``) to scope
         the scan to the one function containing it; omit it for a bounded
         whole-database scan. ``truncated`` is set when a bound elided further
         matches. An empty result is valid, not an error. Read-only."""

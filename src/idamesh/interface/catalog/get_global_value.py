@@ -66,7 +66,7 @@ def register_get_global_value(
         name: str, size: int = DEFAULT_INT_SIZE, signed: bool = False
     ) -> GetGlobalValueView:
         """Read the value of a named global as an integer. ``name`` may be a
-        symbol name or an address (hexadecimal or decimal); it is resolved to the
+        symbol name or an address (hexadecimal, or decimal: bare digits are decimal, hex needs ``0x``); it is resolved to the
         global first. ``size`` bytes are read and decoded under the database's byte
         order and, when ``signed`` is true, as a two's-complement value — exactly as
         ``get_int`` does. The result echoes the resolved ``name`` and ``address``

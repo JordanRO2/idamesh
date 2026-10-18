@@ -102,7 +102,7 @@ def register_trace_source_to_sink(
         (``strcpy`` / ``system`` / ``memcpy`` …) whose tainted data reaches an
         argument. Each path carries the ``source`` and ``sink`` addresses (``0x``
         hex), the sink ``api`` name, and the connecting ``steps``. Pass an
-        ``address`` (hex/decimal/symbol) to scope the scan to the one function
+        ``address`` (hex/decimal/symbol; bare digits are decimal, hex needs ``0x``) to scope the scan to the one function
         containing it; omit it for a bounded whole-database scan. The analysis is
         intra-procedural, heuristic, and bounded to ``max_paths`` (clamped to a
         server maximum); ``truncated`` is set when a bound elided further paths. An
