@@ -33,6 +33,13 @@ _DEFAULT_ROOT_NAME = "idamesh-workers"
 #: analysis, so cloning one lets the worker skip a full re-analysis).
 _DATABASE_SUFFIXES = (".i64", ".idb")
 
+#: Suffixes of files that look like another loadable binary. Only these make a
+#: shared stem ambiguous; ``program.pdb``/``.map``/IDA's unpacked ``.id0`` parts do not.
+_BINARY_SUFFIXES = frozenset(
+    (".exe", ".dll", ".sys", ".ocx", ".cpl", ".scr", ".drv", ".efi", ".so", ".dylib",
+     ".elf", ".bin", ".o", ".obj", ".ko", ".axf", ".out", ".mui")
+)
+
 #: File in each session dir recording the owning supervisor's pid.
 _OWNER_FILE = "owner.pid"
 
@@ -92,14 +99,14 @@ def session_dir(session_id: str) -> Path:
 
 
 def _shares_stem(input_path: Path) -> bool:
-    """Whether another non-database file next to ``input_path`` has the same stem."""
+    """Whether another loadable binary next to ``input_path`` has the same stem."""
     try:
         siblings = list(input_path.parent.glob(glob.escape(input_path.stem) + ".*"))
     except OSError:
         return True  # cannot tell: treat as ambiguous
     return any(
         p != input_path
-        and p.suffix.lower() not in _DATABASE_SUFFIXES
+        and p.suffix.lower() in _BINARY_SUFFIXES
         and p.is_file()
         for p in siblings
     )

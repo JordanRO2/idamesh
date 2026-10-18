@@ -44,6 +44,14 @@ def test_replacing_form_ignored_when_another_binary_shares_the_stem(tmp_path):
     assert _preferred_source(dll) == dll
 
 
+def test_replacing_form_kept_when_only_non_binary_siblings_share_the_stem(tmp_path):
+    exe = _touch(tmp_path / "program.exe")
+    for name in ("program.pdb", "program.id0", "program.map", "program.exe.config"):
+        _touch(tmp_path / name)
+    i64 = _touch(tmp_path / "program.i64")
+    assert _preferred_source(exe) == i64
+
+
 def test_append_form_wins_over_replacing_form(tmp_path):
     exe = _touch(tmp_path / "program.exe")
     _touch(tmp_path / "program.i64")
