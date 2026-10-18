@@ -432,14 +432,14 @@ def test_close_during_spawn_reaps_the_worker(
     fake = None
     deadline = time.monotonic() + 5.0
     while time.monotonic() < deadline:
-        sessions = pool.list_sessions()
+        sessions = list(pool._sessions.values())  # list_sessions hides mid-spawn
         if spawner.instances and sessions and sessions[0].process is spawner.instances[0]:
             fake = spawner.instances[0]
             break
         time.sleep(0.005)
     assert fake is not None, "worker was never attached to the session mid-spawn"
-    session_id = pool.list_sessions()[0].session_id
-    session_scratch = Path(pool.list_sessions()[0].private_copy_path).parent
+    session_id = sessions[0].session_id
+    session_scratch = Path(sessions[0].private_copy_path).parent
 
     # Close while the open is still blocked on the handshake.
     assert pool.close_session(session_id) is True
@@ -688,3 +688,32 @@ def test_pool_startup_sweeps_dead_owner_scratch_dirs(tmp_path, monkeypatch):
     WorkerPool()
 
     assert not stale.exists()
+
+
+def test_mid_spawn_reservation_is_not_visible_or_shareable(
+    scratch, target, install_spawn, make_pool
+):
+    """A reservation (port 0) is not a usable session: get()/list_sessions() hide
+    it and a concurrent open with the same preferred id is refused, not handed a
+    not-yet-ready session."""
+    spawner = install_spawn("hang")
+    pool = make_pool(max_workers=4, handshake_timeout=30.0)
+    opener = threading.Thread(
+        target=lambda: pytest.raises(SessionSpawnError, pool.open_session, str(target),
+                                     preferred_session_id="pending-1")
+    )
+    opener.start()
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline and not spawner.instances:
+        time.sleep(0.005)
+    assert spawner.instances, "worker never spawned"
+
+    assert pool.get("pending-1") is None
+    assert pool.list_sessions() == []
+    with pytest.raises(SessionSpawnError, match="still opening"):
+        pool.open_session(str(target), preferred_session_id="pending-1")
+
+    pool.close_session("pending-1")
+    spawner.instances[0].stdout.release()
+    opener.join(timeout=5.0)
+    assert not opener.is_alive()

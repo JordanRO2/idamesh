@@ -209,6 +209,10 @@ class WorkerPool:
         with self._lock:
             if preferred_session_id:
                 existing = self._sessions.get(preferred_session_id)
+                if existing is not None and existing.port == 0:
+                    raise SessionSpawnError(
+                        f"session {preferred_session_id!r} is still opening"
+                    )
                 if existing is not None and self._is_alive(existing):
                     existing.touch()
                     return existing
@@ -267,16 +271,17 @@ class WorkerPool:
         return placeholder
 
     def list_sessions(self) -> List[WorkerSession]:
-        """All live sessions in stable creation order."""
+        """All live, ready sessions in stable creation order (not mid-spawn)."""
         with self._lock:
             self._reap_locked()
-            return sorted(self._sessions.values(), key=lambda s: s.created_at)
+            ready = (s for s in self._sessions.values() if s.port != 0)
+            return sorted(ready, key=lambda s: s.created_at)
 
     def get(self, session_id: str) -> Optional[WorkerSession]:
-        """The session for ``session_id``, or ``None`` if unknown/dead."""
+        """The session for ``session_id``, or ``None`` if unknown/dead/not yet ready."""
         with self._lock:
             session = self._sessions.get(session_id)
-            if session is None:
+            if session is None or session.port == 0:  # port 0: reserved, mid-spawn
                 return None
             if not self._is_alive(session):
                 self._discard_locked(session_id)
