@@ -35,6 +35,7 @@ Locked in here:
 from __future__ import annotations
 
 import itertools
+import os
 import socket
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -927,3 +928,10 @@ def test_missing_sources_and_path_is_rejected():
     assert "error" in result
     for endpoint in env.endpoints.values():
         assert endpoint.calls == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="case-insensitive paths are a Windows rule")
+def test_path_match_ignores_basename_case_on_windows():
+    session = FakeSession("sess-1", "127.0.0.1", 1, input_path="C:/a/foo.exe")
+    assert merge_module._path_matches("D:/b/Foo.EXE", session)
+    assert not merge_module._path_matches("D:/b/bar.exe", session)

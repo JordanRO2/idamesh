@@ -849,7 +849,9 @@ def _path_matches(path: str, session: SessionView) -> bool:
         return False
     if os.path.normcase(input_path) == os.path.normcase(path):
         return True
-    return os.path.basename(input_path) == os.path.basename(path)
+    return os.path.normcase(os.path.basename(input_path)) == os.path.normcase(
+        os.path.basename(path)
+    )
 
 
 def _canonical_snapshot_path(target: SessionView) -> str:
