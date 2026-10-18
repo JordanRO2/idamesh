@@ -37,6 +37,7 @@ class DatabaseMetadata:
     compiler: str | None = None
     filetype: str | None = None
     sha256: str | None = None
+    idb_path: str | None = None
 
 
 @dataclass(frozen=True)

@@ -56,7 +56,7 @@ class ServerHealthUseCase:
                 database_open = False
             if database_open:
                 try:
-                    idb_path = self._database.metadata().path or None
+                    idb_path = self._database.metadata().idb_path
                 except Exception:
                     idb_path = None
         health = HealthStatus(

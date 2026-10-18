@@ -33,6 +33,7 @@ class IdaDatabaseGateway:
 
     def metadata(self) -> DatabaseMetadata:
         import ida_ida
+        import ida_loader
         import ida_nalt
 
         module = ida_nalt.get_root_filename() or ""
@@ -63,6 +64,7 @@ class IdaDatabaseGateway:
             compiler=self._compiler(),
             filetype=self._filetype(),
             sha256=self._sha256(),
+            idb_path=ida_loader.get_path(ida_loader.PATH_TYPE_IDB) or None,
         )
 
     def is_open(self) -> bool:
