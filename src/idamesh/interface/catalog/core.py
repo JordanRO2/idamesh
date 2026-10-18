@@ -42,7 +42,8 @@ def register_core(
     def server_health() -> HealthView:
         """Report server liveness and whether a database is currently bound and
         ready to serve reads, along with the server version and the MCP protocol
-        revisions this endpoint can negotiate. Safe to poll at any time."""
+        revisions this endpoint can negotiate. ``uptime_s`` is the seconds since this server started. Safe to poll
+        at any time."""
         result = run_use_case(
             executor, lambda: health_use_case.execute(ServerHealthCommand())
         )

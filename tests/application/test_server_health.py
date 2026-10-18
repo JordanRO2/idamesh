@@ -42,3 +42,8 @@ def test_health_reports_idb_location_not_input_path():
 def test_health_idb_path_none_when_unknown():
     health = ServerHealthUseCase(_Database(_metadata())).execute(ServerHealthCommand()).health
     assert health.idb_path is None
+
+
+def test_health_reports_uptime_seconds():
+    health = ServerHealthUseCase(_Database(_metadata())).execute(ServerHealthCommand()).health
+    assert health.uptime_s is not None and health.uptime_s >= 0

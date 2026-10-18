@@ -8,6 +8,8 @@ Bodies land in the integration phase.
 
 from __future__ import annotations
 
+import time
+
 from idamesh.application.dto.core import (
     GetMetadataCommand,
     GetMetadataResult,
@@ -45,6 +47,7 @@ class ServerHealthUseCase:
         self._database = database
         self._server_version = server_version
         self._protocol_versions = protocol_versions
+        self._started = time.monotonic()
 
     def execute(self, command: ServerHealthCommand) -> ServerHealthResult:
         database_open = False
@@ -65,6 +68,6 @@ class ServerHealthUseCase:
             server_version=self._server_version,
             protocol_versions=self._protocol_versions,
             idb_path=idb_path,
-            uptime_s=None,
+            uptime_s=time.monotonic() - self._started,
         )
         return ServerHealthResult(health=health)
