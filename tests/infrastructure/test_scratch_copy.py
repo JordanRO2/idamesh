@@ -80,3 +80,13 @@ def test_materialize_falls_back_when_preferred_source_locked(tmp_path, monkeypat
     dest = materialize_private_copy("sess-2", str(exe))
     assert dest.name == "program.exe"  # fell back to the raw input
     assert dest.is_file()
+
+
+@pytest.mark.parametrize(
+    "bad", ["D:evil", "C:", "a:b", "CON", "nul", "com1", "LPT9.txt", "aux.log"]
+)
+def test_session_id_rejects_drive_relative_and_device_names(bad, tmp_path, monkeypatch):
+    monkeypatch.setenv("IDA_MCP_WORKER_SCRATCH", str(tmp_path / "scratch"))
+    exe = _touch(tmp_path / "program.exe")
+    with pytest.raises(ValueError):
+        materialize_private_copy(bad, str(exe))

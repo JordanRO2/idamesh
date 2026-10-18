@@ -31,6 +31,13 @@ _DEFAULT_ROOT_NAME = "idamesh-workers"
 #: analysis, so cloning one lets the worker skip a full re-analysis).
 _DATABASE_SUFFIXES = (".i64", ".idb")
 
+#: Windows device names; opening one as a directory name hits the device, not the disk.
+_RESERVED_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL"}
+    | {f"COM{n}" for n in range(1, 10)}
+    | {f"LPT{n}" for n in range(1, 10)}
+)
+
 
 def scratch_root() -> Path:
     """The root directory under which per-session scratch dirs are created.
@@ -59,13 +66,18 @@ def _validate_segment(session_id: str) -> str:
     """Reject a ``session_id`` that is not a single, safe path segment.
 
     A crafted ``preferred_session_id`` becomes a scratch-dir name, so a value
-    carrying a separator or ``..`` could otherwise escape the scratch root. This
-    guard confines every scratch path to exactly one child of the root.
+    carrying a separator, ``..`` or a drive colon (``D:evil`` is drive-relative on
+    Windows) could otherwise escape the scratch root. This guard confines every
+    scratch path to exactly one child of the root.
     """
     if not session_id or session_id in (".", ".."):
         raise ValueError(f"unsafe session id for a scratch dir: {session_id!r}")
     if any(sep and sep in session_id for sep in (os.sep, os.altsep, "/", "\\")):
         raise ValueError(f"session id must be a single path segment: {session_id!r}")
+    if ":" in session_id or Path(session_id).name != session_id:
+        raise ValueError(f"session id must be a single path segment: {session_id!r}")
+    if session_id.split(".")[0].rstrip().upper() in _RESERVED_NAMES:
+        raise ValueError(f"session id is a reserved device name: {session_id!r}")
     return session_id
 
 
