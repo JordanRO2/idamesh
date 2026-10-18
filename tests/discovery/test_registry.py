@@ -243,3 +243,18 @@ def test_discovered_session_to_info_shape(reg_dir):
     assert session.token == "tok-gui-a"
     assert session.baseline_record is None
     session.touch()  # no-op, must not raise
+
+
+def test_transient_read_error_keeps_the_record(reg_dir, monkeypatch):
+    reg = DiscoveryRegistry(reg_dir, alive_check=lambda pid: True)
+    path = reg.write(_entry("gui-live"))
+    real_read_text = type(path).read_text
+
+    def locked(self, *a, **kw):
+        if self == path:
+            raise PermissionError("sharing violation")
+        return real_read_text(self, *a, **kw)
+
+    monkeypatch.setattr(type(path), "read_text", locked)
+    assert reg.read_all() == []
+    assert path.exists()  # a locked file is not corrupt: do not delete it

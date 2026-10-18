@@ -294,9 +294,13 @@ class DiscoveryRegistry:
     def _read_valid(self, path: Path) -> Optional[DiscoveryEntry]:
         try:
             text = path.read_text(encoding="utf-8")
+        except OSError:
+            # Transient (e.g. a Windows sharing violation mid-replace): skip, keep it.
+            return None
+        try:
             data = json.loads(text)
             return DiscoveryEntry.from_dict(data)
-        except (OSError, ValueError, TypeError):
+        except (ValueError, TypeError):
             # Corrupt or incomplete — drop it so the registry self-heals.
             _silent_unlink(path)
             return None

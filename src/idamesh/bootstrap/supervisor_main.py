@@ -75,9 +75,14 @@ def build_supervisor_container(
 
     discovery = None
     if adopt_gui:
-        from idamesh.infrastructure.discovery import GuiDiscoveryReader
+        from idamesh.infrastructure.discovery import (
+            DiscoveryRegistry,
+            GuiDiscoveryReader,
+            tcp_port_open,
+        )
 
-        discovery = GuiDiscoveryReader()
+        # A pid alone is not proof: Windows recycles pids of crashed IDA instances.
+        discovery = GuiDiscoveryReader(DiscoveryRegistry(port_check=tcp_port_open))
 
     pool = WorkerPool(max_workers=max_workers, host=host)
     client = WorkerClient()
