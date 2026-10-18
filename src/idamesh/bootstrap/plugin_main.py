@@ -206,7 +206,12 @@ class PluginServer:
 
         binary, idb_path = self._database_identity()
         self._session_id = f"gui-{_safe_stem(binary or 'idb')}-{secrets.token_hex(3)}"
-        self._register(binary, idb_path)
+        try:
+            self._register(binary, idb_path)
+        except BaseException:
+            # Unreachable via discovery: don't leave the listener running.
+            self.stop()
+            raise
 
         if self._config.autolaunch:
             self._maybe_autolaunch()

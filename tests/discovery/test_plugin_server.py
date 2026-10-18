@@ -183,3 +183,21 @@ def test_spawn_supervisor_skips_when_no_python(tmp_path, monkeypatch):
     server = PluginServer(PluginConfig("127.0.0.1", 0, "t", True))
     server._spawn_supervisor("127.0.0.1", 8745)
     assert popen == []
+
+
+def test_start_stops_transport_when_registration_fails(tmp_path):
+    import pytest
+
+    class _LockedRegistry:
+        def write(self, entry):
+            raise PermissionError("registry file locked")
+
+        def remove_port(self, port):
+            return False
+
+    config = PluginConfig(host="127.0.0.1", port=0, token="t", autolaunch=False)
+    server = PluginServer(config, registry=_LockedRegistry())
+    with pytest.raises(PermissionError):
+        server.start()
+    assert server.is_running is False
+    assert server._transport is None  # listener was shut down, not leaked
