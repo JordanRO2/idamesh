@@ -52,9 +52,10 @@ _SESSION_SCHEMA: Dict[str, Any] = {
 }
 
 
-#: Management tools that mutate server state (not read-only): they open, close,
-#: or reconcile databases rather than merely reporting on them.
-_WRITE_TOOL_NAMES = frozenset({IDB_CLOSE, IDB_MERGE})
+#: Management tools that mutate server state (not read-only): they open (spawn a
+#: worker and a private copy), close, or reconcile databases rather than merely
+#: reporting on them.
+_WRITE_TOOL_NAMES = frozenset({IDB_OPEN, IDB_CLOSE, IDB_MERGE})
 
 
 def _tool(name: str, description: str, input_schema: Dict[str, Any],
