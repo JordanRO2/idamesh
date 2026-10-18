@@ -61,6 +61,7 @@ from idamesh.domain.services.survey import (
     ROLE_LEAF,
     ROLE_LIBRARY,
     ROLE_ORDINARY,
+    ROLE_SMALL,
     ROLE_SMALL_LEAF,
     ROLE_THUNK,
     STRING_COMMAND,
@@ -412,8 +413,8 @@ def test_classify_cheap_honours_flags():
 
 def test_classify_cheap_uses_size_bands():
     service = SurveyService()
-    assert service.classify_cheap(_func(size=0x10)) == ROLE_SMALL_LEAF
-    assert service.classify_cheap(_func(size=0x20)) == ROLE_SMALL_LEAF
+    assert service.classify_cheap(_func(size=0x10)) == ROLE_SMALL
+    assert service.classify_cheap(_func(size=0x20)) == ROLE_SMALL
     assert service.classify_cheap(_func(size=0x400)) == ROLE_LARGE
     assert service.classify_cheap(_func(size=0x100)) == ROLE_ORDINARY
 
@@ -425,7 +426,7 @@ def test_classify_cheap_never_emits_degree_only_roles():
         service.classify_cheap(_func(size=size))
         for size in (0x10, 0x40, 0x200, 0x800)
     }
-    assert roles <= {ROLE_THUNK, ROLE_LIBRARY, ROLE_SMALL_LEAF, ROLE_LARGE, ROLE_ORDINARY}
+    assert roles <= {ROLE_THUNK, ROLE_LIBRARY, ROLE_SMALL, ROLE_LARGE, ROLE_ORDINARY}
     assert ROLE_HUB not in roles
     assert ROLE_DISPATCHER not in roles
     assert ROLE_LEAF not in roles

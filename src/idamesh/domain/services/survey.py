@@ -2,7 +2,7 @@
 
 :class:`SurveyService` holds the *authored* policy that turns raw records into the
 survey's qualitative buckets: a function-role taxonomy (thunk / library /
-small-leaf / leaf / hub / dispatcher / large / ordinary), a notable-import
+small-leaf / small / leaf / hub / dispatcher / large / ordinary), a notable-import
 categoriser (network / process / filesystem / registry / crypto / memory /
 loader / anti-debug), and a coarse string categoriser (url / path / registry /
 format / ip / command / other). Every threshold, keyword set, and bucket name is
@@ -24,6 +24,7 @@ from idamesh.domain.entities.function import Function
 ROLE_THUNK = "thunk"
 ROLE_LIBRARY = "library"
 ROLE_SMALL_LEAF = "small-leaf"
+ROLE_SMALL = "small"
 ROLE_LEAF = "leaf"
 ROLE_HUB = "hub"
 ROLE_DISPATCHER = "dispatcher"
@@ -243,14 +244,15 @@ class SurveyService:
         """Assign ``func`` a role from flags and size alone (no xref scan).
 
         The ``minimal`` detail level uses this so a huge database can be surveyed
-        without an inbound/outbound reference query per function.
+        without an inbound/outbound reference query per function. A tiny body is
+        labelled ``small``, not ``small-leaf``: leaf-ness needs the callee count.
         """
         if func.is_thunk:
             return ROLE_THUNK
         if func.is_library:
             return ROLE_LIBRARY
         if func.size <= self.small_size:
-            return ROLE_SMALL_LEAF
+            return ROLE_SMALL
         if func.size >= self.large_size:
             return ROLE_LARGE
         return ROLE_ORDINARY
