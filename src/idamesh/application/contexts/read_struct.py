@@ -7,8 +7,8 @@ named aggregate's field layout from the
 through the :class:`~idamesh.domain.ports.memory.MemoryGateway`, and decodes each
 field *here*, keeping interpretation pure. Primitive fields (1/2/4/8-byte int,
 char, or pointer) are rendered as an integer/hex string under the database's byte
-order (from ``metadata()``); larger, aggregate, or array fields are rendered as a
-raw hexadecimal-bytes string. An unknown struct name or an unresolvable/unreadable
+order (from ``metadata()``); larger, aggregate, array, or floating-point fields are
+rendered as a raw hexadecimal-bytes string. An unknown struct name or an unresolvable/unreadable
 address raises, so the interface layer renders it as an ``isError`` result.
 """
 
@@ -31,16 +31,27 @@ def _byte_order(endianness: Endianness) -> str:
     return "big" if endianness is Endianness.BIG else "little"
 
 
-def _render_field(chunk: bytes, size: int, order: str) -> str:
+def _is_integer_like(type_name: str) -> bool:
+    """``False`` for an array or floating-point type, judged from its rendered text.
+
+    The layout carries only the type's text, so an opaque typedef or aggregate of
+    scalar width is still treated as an integer.
+    """
+    lowered = type_name.lower()
+    return "[" not in lowered and "float" not in lowered and "double" not in lowered
+
+
+def _render_field(chunk: bytes, size: int, order: str, type_name: str) -> str:
     """Render one field's bytes as a decoded scalar or a raw hex-bytes string.
 
-    A field whose ``size`` is one of :data:`_SCALAR_WIDTHS` and whose ``chunk``
-    holds exactly that many bytes is decoded (unsigned) under ``order`` and
+    A field whose ``size`` is one of :data:`_SCALAR_WIDTHS`, whose ``chunk``
+    holds exactly that many bytes, and whose ``type_name`` is not an array or
+    floating-point type is decoded (unsigned) under ``order`` and
     rendered as ``"<decimal> (0x<hex>)"``. Every other field — a larger, aggregate,
     array, or truncated field — is rendered as ``"0x"`` followed by the bytes in
     image (address) order.
     """
-    if size in _SCALAR_WIDTHS and len(chunk) == size:
+    if size in _SCALAR_WIDTHS and len(chunk) == size and _is_integer_like(type_name):
         value = int.from_bytes(chunk, byteorder=order, signed=False)
         return f"{value} (0x{value:x})"
     return "0x" + chunk.hex()
@@ -66,8 +77,8 @@ class ReadStructUseCase:
         struct's layout is fetched from the struct gateway; an unknown struct name
         or unresolvable address raises a ``ValueError``. The aggregate's byte run
         is read through the memory gateway and each field is sliced out by its
-        offset and size: a field whose size is one of :data:`_SCALAR_WIDTHS` is
-        decoded as an integer under the database's byte order and rendered as an
+        offset and size: a field whose size is one of :data:`_SCALAR_WIDTHS` and
+        whose type is neither an array nor floating-point is decoded as an integer under the database's byte order and rendered as an
         integer/hex string, while any other field is rendered as a raw hex-bytes
         string. The decoded fields are returned as a
         :class:`~idamesh.domain.entities.struct_read.StructReadResult`.
@@ -96,6 +107,7 @@ class ReadStructUseCase:
                     data[field.offset : field.offset + field.size],
                     field.size,
                     order,
+                    field.type_name,
                 ),
             )
             for field in layout.fields

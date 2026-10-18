@@ -162,10 +162,37 @@ def test_read_struct_little_endian_decodes_every_field_path():
         StructFieldValue("flag", "char", 8, "65 (0x41)"),
         # 3-byte array is non-scalar → raw hex in image order.
         StructFieldValue("buf", "unsigned char[3]", 9, "0xaabbcc"),
-        StructFieldValue("pad", "char[4]", 12, "0 (0x0)"),
+        # a 4-byte array is not an integer even though its width is scalar.
+        StructFieldValue("pad", "char[4]", 12, "0x00000000"),
         # pointer (size 8) → scalar decoded little-endian.
         StructFieldValue("next", "void *", 16, "4210752 (0x404040)"),
     )
+
+
+def test_read_struct_renders_array_and_float_fields_as_hex():
+    layout = StructLayout(
+        name="Mixed",
+        size=16,
+        fields=(
+            StructField(name="tag", type_name="char[4]", offset=0, size=4),
+            StructField(name="f", type_name="float", offset=4, size=4),
+            StructField(name="d", type_name="double", offset=8, size=8),
+        ),
+    )
+    memory = _FakeMemory(blobs={0x1000: b"ABCD" + b"\x00\x00\x80\x3f" + b"\x00" * 7 + b"\x40"})
+    use_case = ReadStructUseCase(
+        _FakeStructs(layouts={"Mixed": layout}), memory, _FakeDatabase()
+    )
+
+    fields = use_case.execute(
+        ReadStructCommand(address="0x1000", struct="Mixed")
+    ).result.fields
+
+    assert [f.value for f in fields] == [
+        "0x41424344",
+        "0x0000803f",
+        "0x0000000000000040",
+    ]
 
 
 def test_read_struct_big_endian_decodes_scalars_by_byte_order():
