@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from idamesh.application.dto.read_struct import ReadStructCommand, ReadStructResult
 from idamesh.domain.entities.metadata import Endianness
+from idamesh.domain.entities.struct_layout import StructField
 from idamesh.domain.entities.struct_read import StructFieldValue, StructReadResult
 from idamesh.domain.ports.database import DatabaseGateway
 from idamesh.domain.ports.memory import MemoryGateway
@@ -31,27 +32,18 @@ def _byte_order(endianness: Endianness) -> str:
     return "big" if endianness is Endianness.BIG else "little"
 
 
-def _is_integer_like(type_name: str) -> bool:
-    """``False`` for an array or floating-point type, judged from its rendered text.
-
-    The layout carries only the type's text, so an opaque typedef or aggregate of
-    scalar width is still treated as an integer.
-    """
-    lowered = type_name.lower()
-    return "[" not in lowered and "float" not in lowered and "double" not in lowered
-
-
-def _render_field(chunk: bytes, size: int, order: str, type_name: str) -> str:
+def _render_field(chunk: bytes, size: int, order: str, field: StructField) -> str:
     """Render one field's bytes as a decoded scalar or a raw hex-bytes string.
 
     A field whose ``size`` is one of :data:`_SCALAR_WIDTHS`, whose ``chunk``
-    holds exactly that many bytes, and whose ``type_name`` is not an array or
-    floating-point type is decoded (unsigned) under ``order`` and
+    holds exactly that many bytes, and which is neither an array nor a
+    floating-point type (a pointer is an integer) is decoded (unsigned) under ``order`` and
     rendered as ``"<decimal> (0x<hex>)"``. Every other field — a larger, aggregate,
     array, or truncated field — is rendered as ``"0x"`` followed by the bytes in
     image (address) order.
     """
-    if size in _SCALAR_WIDTHS and len(chunk) == size and _is_integer_like(type_name):
+    integer_like = not (field.is_array or field.is_floating)
+    if size in _SCALAR_WIDTHS and len(chunk) == size and integer_like:
         value = int.from_bytes(chunk, byteorder=order, signed=False)
         return f"{value} (0x{value:x})"
     return "0x" + chunk.hex()
@@ -107,7 +99,7 @@ class ReadStructUseCase:
                     data[field.offset : field.offset + field.size],
                     field.size,
                     order,
-                    field.type_name,
+                    field,
                 ),
             )
             for field in layout.fields

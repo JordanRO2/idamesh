@@ -22,12 +22,16 @@ class StructField:
 
     ``type_name`` is the field's declared type rendered as text; ``offset`` is its
     byte offset from the start of the aggregate and ``size`` its own byte width.
+    ``is_array`` / ``is_floating`` carry the real type classification (a pointer is
+    neither), so decoding never has to guess from ``type_name``.
     """
 
     name: str
     type_name: str
     offset: int
     size: int
+    is_array: bool = False
+    is_floating: bool = False
 
 
 @dataclass(frozen=True)

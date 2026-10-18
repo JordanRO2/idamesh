@@ -94,6 +94,8 @@ class IdaStructGateway:
                         type_name=member.dstr() or "",
                         offset=int(udm.offset) // _BITS_PER_BYTE,
                         size=_member_byte_size(member, udm.size),
+                        is_array=bool(member.is_array()),
+                        is_floating=bool(member.is_floating()),
                     )
                 )
 

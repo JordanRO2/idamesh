@@ -109,8 +109,8 @@ _POINT = StructLayout(
         StructField(name="x", type_name="int", offset=0, size=4),
         StructField(name="y", type_name="int", offset=4, size=4),
         StructField(name="flag", type_name="char", offset=8, size=1),
-        StructField(name="buf", type_name="unsigned char[3]", offset=9, size=3),
-        StructField(name="pad", type_name="char[4]", offset=12, size=4),
+        StructField(name="buf", type_name="unsigned char[3]", offset=9, size=3, is_array=True),
+        StructField(name="pad", type_name="char[4]", offset=12, size=4, is_array=True),
         StructField(name="next", type_name="void *", offset=16, size=8),
     ),
 )
@@ -174,9 +174,9 @@ def test_read_struct_renders_array_and_float_fields_as_hex():
         name="Mixed",
         size=16,
         fields=(
-            StructField(name="tag", type_name="char[4]", offset=0, size=4),
-            StructField(name="f", type_name="float", offset=4, size=4),
-            StructField(name="d", type_name="double", offset=8, size=8),
+            StructField(name="tag", type_name="char[4]", offset=0, size=4, is_array=True),
+            StructField(name="f", type_name="float", offset=4, size=4, is_floating=True),
+            StructField(name="d", type_name="double", offset=8, size=8, is_floating=True),
         ),
     )
     memory = _FakeMemory(blobs={0x1000: b"ABCD" + b"\x00\x00\x80\x3f" + b"\x00" * 7 + b"\x40"})
@@ -193,6 +193,29 @@ def test_read_struct_renders_array_and_float_fields_as_hex():
         "0x0000803f",
         "0x0000000000000040",
     ]
+
+
+def test_read_struct_decodes_pointers_to_float_and_array_types_as_integers():
+    # Classification comes from the flags, not the type text: these names contain
+    # "double"/"float"/"[" but the fields are pointers.
+    layout = StructLayout(
+        name="Ptrs",
+        size=16,
+        fields=(
+            StructField(name="a", type_name="double *", offset=0, size=8),
+            StructField(name="d", type_name="int (*)[4]", offset=8, size=8),
+        ),
+    )
+    memory = _FakeMemory(blobs={0x1000: bytes.fromhex("4040400000000000") * 2})
+    use_case = ReadStructUseCase(
+        _FakeStructs(layouts={"Ptrs": layout}), memory, _FakeDatabase()
+    )
+
+    fields = use_case.execute(
+        ReadStructCommand(address="0x1000", struct="Ptrs")
+    ).result.fields
+
+    assert [f.value for f in fields] == ["4210752 (0x404040)"] * 2
 
 
 def test_read_struct_big_endian_decodes_scalars_by_byte_order():

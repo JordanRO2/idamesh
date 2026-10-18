@@ -69,11 +69,12 @@ def register_read_struct(
     def read_struct(address: str, struct: str) -> ReadStructView:
         """Interpret the memory at ``address`` as the aggregate type named
         ``struct``. The ``address`` may be a hexadecimal literal (``0x…``), a
-        decimal literal, or a symbol name; it is resolved first. The struct's field
+        decimal literal, or a symbol name; it is resolved first (bare digits are
+        decimal; hex needs 0x). The struct's field
         layout drives the decode: primitive fields (1/2/4/8-byte int, char, or
         pointer) are rendered as an integer/hex ``value`` under the database's byte
-        order, while larger, aggregate, or array fields are rendered as a raw
-        hex-bytes ``value``. The result reports the ``struct`` name, the resolved
+        order, while larger, aggregate, array, or floating-point fields are
+        rendered as a raw hex-bytes ``value``. The result reports the ``struct`` name, the resolved
         ``address`` (``0x`` hex), the aggregate ``size``, and one entry per field
         with its ``name``, rendered ``type``, byte ``offset``, and decoded
         ``value``. An unknown struct name or an unresolvable/unreadable address
