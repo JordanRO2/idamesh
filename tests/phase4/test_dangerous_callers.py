@@ -490,6 +490,13 @@ def test_use_case_replaces_thunk_site_with_thunk_callers():
                     kind=XrefKind.DATA,
                     ref_type=XrefType.OFFSET,
                 ),
+                # Fall-through flow into the thunk entry is not a caller either.
+                Xref(
+                    source=Address(0x402ffe),
+                    target=Address(0x403000),
+                    kind=XrefKind.CODE,
+                    ref_type=XrefType.ORDINARY,
+                ),
                 _call_xref(0x401010, func="f1"),
             ],
         }

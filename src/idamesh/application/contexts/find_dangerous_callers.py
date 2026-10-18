@@ -23,7 +23,7 @@ from idamesh.domain.entities.dangerous_caller import (
     DangerousApiMatch,
     DangerousCaller,
 )
-from idamesh.domain.entities.xref import Xref, XrefKind
+from idamesh.domain.entities.xref import Xref, XrefKind, XrefType
 from idamesh.domain.ports.functions import FunctionRepository
 from idamesh.domain.ports.imports import ImportRepository
 from idamesh.domain.ports.xrefs import XrefRepository
@@ -143,7 +143,11 @@ class FindDangerousCallersUseCase:
                 continue
             # shortcut: one thunk level, a thunk calling a thunk is not unwound.
             for caller in self._xrefs.refs_to(func.ea):
-                if caller.kind is XrefKind.CODE and caller.source not in seen:
+                if (
+                    caller.kind is XrefKind.CODE
+                    and caller.ref_type in (XrefType.CALL, XrefType.JUMP)
+                    and caller.source not in seen
+                ):
                     seen.add(caller.source)
                     yield caller
 
