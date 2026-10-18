@@ -161,8 +161,9 @@ def register_survey_binary(
         separately to orient. The overview bundles the database ``metadata``,
         coarse ``counts`` (functions, imports, strings, segments), the
         ``entrypoints``, a ``roles`` histogram over an authored function-role
-        taxonomy (``thunk`` / ``library`` / ``small-leaf`` / ``leaf`` / ``hub`` /
-        ``dispatcher`` / ``large`` / ``ordinary``), a ``notable_imports``
+        taxonomy (``thunk`` / ``library`` / ``small-leaf`` / ``small`` / ``leaf`` /
+        ``hub`` / ``dispatcher`` / ``large`` / ``ordinary``; ``minimal`` reports a
+        tiny body as ``small`` since it skips the callee scan), a ``notable_imports``
         shortlist tagged by category (``network`` / ``process`` / ``filesystem``
         / ``registry`` / ``crypto`` / ``memory`` / ``loader`` / ``anti-debug``), a
         ``string_categories`` summary, and a ``top_functions`` shortlist ranked by
