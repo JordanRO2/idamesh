@@ -603,6 +603,17 @@ def test_manual_policy_refuses_write_while_conflicts_unresolved():
         assert endpoint.calls_named(SNAPSHOT) == []
 
 
+def test_prefer_policy_with_unknown_session_is_refused_without_writing():
+    env = _conflicting_env()
+
+    result = env.orch.merge({"path": INPUT_PATH, "policy": "prefer", "prefer": "typo"})
+
+    assert "error" in result and "typo" in result["error"]
+    for endpoint in env.endpoints.values():
+        assert endpoint.calls_named(APPLY) == []
+        assert endpoint.calls_named(SNAPSHOT) == []
+
+
 def test_provenance_mismatch_is_refused_without_writing():
     env = Env()
     env.baseline(_wire(names={}))

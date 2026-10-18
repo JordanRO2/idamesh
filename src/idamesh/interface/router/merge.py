@@ -217,6 +217,16 @@ class MergeOrchestrator:
             }
 
         session_ids = [s.session_id for s in sessions]
+        if request.policy is ConflictPolicy.PREFER and request.prefer not in session_ids:
+            return {
+                "error": (
+                    f"merge refused: prefer={request.prefer!r} is not one of the "
+                    f"merge sessions {session_ids}"
+                ),
+                "sessions": session_ids,
+                "reachable": [],
+                "unreachable": [],
+            }
         reachable, unreachable, records = self._export_all(sessions)
 
         # Per-session pristine baselines: each reachable source is subtracted
@@ -277,11 +287,11 @@ class MergeOrchestrator:
         unresolved = [c for c in plan.conflicts if c.resolved is None]
         if request.dry_run:
             return {"dry_run": True, **common}
-        if request.policy is ConflictPolicy.MANUAL and unresolved:
+        if unresolved:
             return {
                 "error": (
-                    "merge refused: unresolved conflicts under 'manual' policy; "
-                    "review them and rerun with policy=first|last|prefer"
+                    "merge refused: unresolved conflicts under "
+                    f"'{request.policy.value}' policy; review them and rerun with policy=first|last|prefer"
                 ),
                 **common,
             }
