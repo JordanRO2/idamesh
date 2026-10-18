@@ -204,13 +204,14 @@ class _InlineExecutor:
 
 
 def _edges(n: int) -> List[Xref]:
-    """A list of ``n`` placeholder call edges (only its length is read)."""
+    """A list of ``n`` call edges from ``n`` distinct calling functions."""
     return [
         Xref(
             source=Address(0x1000 + i),
             target=Address(0x2000),
             kind=XrefKind.CODE,
             ref_type=XrefType.CALL,
+            source_func=f"caller_{i}",
         )
         for i in range(n)
     ]
@@ -624,6 +625,29 @@ def test_standard_detail_measures_degree_via_xrefs():
     assert entry.caller_count == 20
     assert entry.callee_count == 3
     assert entry.role == ROLE_HUB
+
+
+def test_caller_count_ignores_repeated_call_sites_from_one_function():
+    class _OneCallerXrefs(_FakeXrefs):
+        def refs_to(self, ea):
+            return [
+                Xref(
+                    source=Address(0x1000 + i),
+                    target=ea,
+                    kind=XrefKind.CODE,
+                    ref_type=XrefType.CALL,
+                    source_func="only_caller",
+                )
+                for i in range(5)
+            ]
+
+    use_case = _use_case(
+        functions=_FakeFunctions([_func(size=0x100)]), xrefs=_OneCallerXrefs()
+    )
+
+    survey = use_case.execute(SurveyBinaryCommand()).survey
+
+    assert survey.top_functions[0].caller_count == 1
 
 
 def test_xref_lookup_failure_is_tolerated():

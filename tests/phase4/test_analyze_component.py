@@ -144,12 +144,13 @@ def _call(source: int, target: int, name: Optional[str] = None) -> Xref:
 
 
 def _ref_to(target: int, source: int) -> Xref:
-    """An inbound reference into ``target`` from ``source`` (count is what matters)."""
+    """An inbound call into ``target`` from the function at ``source``."""
     return Xref(
         source=Address(source),
         target=Address(target),
         kind=XrefKind.CODE,
         ref_type=XrefType.CALL,
+        source_func=f"fn_{source:x}",
     )
 
 
@@ -231,7 +232,7 @@ def test_service_member_metrics_are_per_function_degree():
     assert by_ea[C_EA].callee_count == 1  # B
     assert by_ea[D_EA].callee_count == 0
 
-    # caller_count comes straight from refs_to.
+    # caller_count is the number of distinct calling functions in refs_to.
     assert by_ea[ROOT].caller_count == 0
     assert by_ea[B_EA].caller_count == 2  # from A and C
     assert by_ea[C_EA].caller_count == 1
@@ -346,6 +347,33 @@ def test_service_visits_a_cycle_member_once():
     )
     b_members = [m for m in component.members if m.address.value == B_EA]
     assert len(b_members) == 1
+
+
+def test_caller_count_counts_distinct_calling_functions_only():
+    def ref(source: int, kind: XrefKind, ref_type: XrefType, func: Optional[str]):
+        return Xref(
+            source=Address(source),
+            target=Address(D_EA),
+            kind=kind,
+            ref_type=ref_type,
+            source_func=func,
+        )
+
+    code, data = XrefKind.CODE, XrefKind.DATA
+    refs = [
+        ref(0x10, code, XrefType.CALL, "a"),
+        ref(0x14, code, XrefType.CALL, "a"),  # second call site, same caller
+        ref(0x20, code, XrefType.JUMP, "b"),  # tail call
+        ref(0x30, data, XrefType.OFFSET, "c"),  # data reference
+        ref(0x40, code, XrefType.ORDINARY, "d"),  # fall-through flow
+        ref(0x50, code, XrefType.CALL, None),  # source in no function
+    ]
+    xrefs = _FakeXrefRepository({D_EA: []}, {D_EA: refs})
+    functions = _FakeFunctionRepository({D_EA: _func(D_EA, "symD", 0x20)})
+
+    component = ComponentService().assemble(Address(D_EA), xrefs, functions, depth=0)
+
+    assert component.members[0].caller_count == 2
 
 
 def test_service_self_recursive_root_counts_internal_self_edge():

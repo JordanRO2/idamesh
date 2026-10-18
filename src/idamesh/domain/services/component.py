@@ -14,11 +14,31 @@ internal/external edge split are our design.
 
 from __future__ import annotations
 
+from typing import Iterable
+
 from idamesh.domain.entities.component import Component, ComponentMember
+from idamesh.domain.entities.xref import Xref, XrefKind, XrefType
 from idamesh.domain.ports.functions import FunctionRepository
 from idamesh.domain.ports.xrefs import XrefRepository
 from idamesh.domain.services.call_graph import DEFAULT_MAX_NODES, CallGraphService
 from idamesh.domain.values.address import Address
+
+
+def count_calling_functions(refs: Iterable[Xref]) -> int:
+    """Count the distinct functions that call or jump to a target.
+
+    Data references, flow fall-through and sources outside any function are
+    ignored, and several call sites in one function count once.
+    """
+    return len(
+        {
+            ref.source_func
+            for ref in refs
+            if ref.kind is XrefKind.CODE
+            and ref.ref_type in (XrefType.CALL, XrefType.JUMP)
+            and ref.source_func is not None
+        }
+    )
 
 
 class ComponentService:
@@ -91,7 +111,7 @@ class ComponentService:
                     address=node.address,
                     name=name,
                     size=size,
-                    caller_count=len(callers),
+                    caller_count=count_calling_functions(callers),
                     callee_count=len(callees),
                 )
             )

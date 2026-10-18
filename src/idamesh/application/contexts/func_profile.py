@@ -18,6 +18,7 @@ from idamesh.domain.ports.basic_blocks import BasicBlockGateway
 from idamesh.domain.ports.database import DatabaseGateway
 from idamesh.domain.ports.functions import FunctionRepository
 from idamesh.domain.ports.xrefs import XrefRepository
+from idamesh.domain.services.component import count_calling_functions
 from idamesh.domain.values.address import Selector
 
 
@@ -40,10 +41,10 @@ class FuncProfileUseCase:
         """Resolve ``command.address`` and assemble its function's metrics.
 
         The selector is resolved to a concrete address and mapped to its owning
-        function. Name and size come from the function repository; caller and
-        callee counts from the cross-reference repository (``refs_to`` /
-        ``callees``); block and edge counts from the basic-block gateway. An
-        out-of-range, unresolvable, or out-of-function address surfaces as an
+        function. Name and size come from the function repository; the caller count
+        (distinct calling functions) and callee count from the cross-reference
+        repository (``refs_to`` / ``callees``); block and edge counts from the
+        basic-block gateway. An out-of-range, unresolvable, or out-of-function address surfaces as an
         error, which the interface layer renders as an ``isError`` result.
         """
         selector = Selector.parse(command.address)
@@ -58,7 +59,7 @@ class FuncProfileUseCase:
         entry = func.ea
         blocks = self._blocks.blocks(entry)
         edge_count = sum(len(block.successors) for block in blocks)
-        caller_count = len(self._xrefs.refs_to(entry))
+        caller_count = count_calling_functions(self._xrefs.refs_to(entry))
         callee_count = len(self._xrefs.callees(entry))
 
         profile = FuncProfile(

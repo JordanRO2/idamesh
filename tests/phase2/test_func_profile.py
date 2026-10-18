@@ -203,6 +203,34 @@ def test_func_profile_anchors_metrics_at_entry_not_interior_address():
     assert result.profile.callee_count == 1
 
 
+def test_func_profile_caller_count_is_distinct_calling_functions():
+    entry = 0x401000
+    functions = _FakeFunctions(containing={entry: _function(entry, "f", size=0x8)})
+    blocks = _FakeBlocks(blocks={entry: [_block(0x401000, 0x401008)]})
+    data_ref = Xref(
+        source=Address(0x500000),
+        target=Address(entry),
+        kind=XrefKind.DATA,
+        ref_type=XrefType.OFFSET,
+        source_func="table",
+    )
+    xrefs = _FakeXrefs(
+        refs={
+            entry: [
+                _inbound(0x402000, entry, "a"),
+                _inbound(0x402010, entry, "a"),  # second call site, same caller
+                _inbound(0x403000, entry, "b"),
+                data_ref,
+            ]
+        }
+    )
+    use_case = FuncProfileUseCase(functions, xrefs, blocks, _FakeDatabase())
+
+    result = use_case.execute(FuncProfileCommand(address="0x401000"))
+
+    assert result.profile.caller_count == 2
+
+
 def test_func_profile_empty_function_yields_zero_counts():
     entry = 0x401000
     func = _function(entry, "leaf", size=0x8)

@@ -31,6 +31,7 @@ from idamesh.domain.ports.functions import FunctionRepository
 from idamesh.domain.ports.imports import ImportRepository
 from idamesh.domain.ports.strings import StringsRepository
 from idamesh.domain.ports.xrefs import XrefRepository
+from idamesh.domain.services.component import count_calling_functions
 from idamesh.domain.services.survey import SurveyService
 from idamesh.domain.values.pagination import PageRequest
 
@@ -123,7 +124,7 @@ class SurveyBinaryUseCase:
         scored: List[Tuple[int, NotableFunction]] = []
         for func in functions:
             if detail == DETAIL_STANDARD:
-                caller_count = len(self._safe_refs_to(func.ea))
+                caller_count = count_calling_functions(self._safe_refs_to(func.ea))
                 callee_count = len(self._safe_callees(func.ea))
                 role = self._survey.classify_function(
                     func, caller_count=caller_count, callee_count=callee_count
