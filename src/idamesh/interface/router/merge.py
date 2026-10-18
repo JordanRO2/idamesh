@@ -779,7 +779,8 @@ def _split_wire(wire: Mapping[str, Any], batch: int) -> Iterator[Dict[str, Any]]
     HTTP transport caps a request body (``DEFAULT_MAX_BODY_BYTES``). A real
     database's record is far larger than any single frame should carry, so it is
     applied in batches of at most ``batch`` items across the three fields.
-    ``provenance`` rides on every chunk because the worker validates it per call.
+    ``provenance`` rides on every chunk so each is a well-formed record; the worker
+    does not check it, so the cross-binary gate is ``_verify_target_provenance``.
     At least one chunk is always produced, so an empty record still round-trips.
     """
     provenance = wire.get("provenance")
