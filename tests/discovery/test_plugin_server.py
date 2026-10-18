@@ -135,3 +135,51 @@ def test_plugin_entry_resolves_pluginserver_under_alien_globals(monkeypatch):
     plugin = alien()  # must NOT raise NameError on PluginServer
 
     assert isinstance(plugin, fake.plugin_t)
+
+
+# --------------------------------------------------------------------------- #
+# supervisor auto-launch interpreter selection
+# --------------------------------------------------------------------------- #
+
+
+def test_supervisor_python_prefers_env_then_launch_spec_then_python_exe(
+    tmp_path, monkeypatch
+):
+    import json
+    import sys
+
+    from idamesh.bootstrap import plugin_main
+
+    monkeypatch.setenv("IDA_MCP_USER_DIR", str(tmp_path))
+    monkeypatch.delenv("IDA_MCP_SUPERVISOR_PYTHON", raising=False)
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "ida64.exe"))
+    # No env, no launch.json, sys.executable is the IDA binary -> nothing to launch.
+    assert plugin_main._supervisor_python() is None
+
+    (tmp_path / "mcp").mkdir()
+    (tmp_path / "mcp" / "launch.json").write_text(json.dumps({"python": "/opt/py/python3"}))
+    assert plugin_main._supervisor_python() == "/opt/py/python3"
+
+    monkeypatch.setenv("IDA_MCP_SUPERVISOR_PYTHON", "/env/python")
+    assert plugin_main._supervisor_python() == "/env/python"
+
+    monkeypatch.delenv("IDA_MCP_SUPERVISOR_PYTHON")
+    (tmp_path / "mcp" / "launch.json").unlink()
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "python3.12"))
+    assert plugin_main._supervisor_python() == str(tmp_path / "python3.12")
+
+
+def test_spawn_supervisor_skips_when_no_python(tmp_path, monkeypatch):
+    import subprocess
+    import sys
+
+    from idamesh.bootstrap.plugin_main import PluginConfig, PluginServer
+
+    monkeypatch.setenv("IDA_MCP_USER_DIR", str(tmp_path))
+    monkeypatch.delenv("IDA_MCP_SUPERVISOR_PYTHON", raising=False)
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "ida64.exe"))
+    popen = []
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: popen.append(a))
+    server = PluginServer(PluginConfig("127.0.0.1", 0, "t", True))
+    server._spawn_supervisor("127.0.0.1", 8745)
+    assert popen == []

@@ -74,6 +74,34 @@ def _parse_port(raw: Optional[str], default: int) -> int:
     return value if value >= 0 else default
 
 
+def _supervisor_python() -> Optional[str]:
+    """The interpreter to launch the supervisor with, or ``None`` if none is known.
+
+    Order: ``IDA_MCP_SUPERVISOR_PYTHON``, the ``python`` recorded in the installer's
+    ``launch.json``, then ``sys.executable`` only when it is a Python interpreter
+    (inside IDAPython it is the IDA binary).
+    """
+    override = os.environ.get("IDA_MCP_SUPERVISOR_PYTHON")
+    if override:
+        return override
+    try:
+        import json
+
+        from idamesh.infrastructure.discovery.registry import ida_user_dir
+
+        spec = json.loads(
+            (ida_user_dir() / "mcp" / "launch.json").read_text(encoding="utf-8")
+        )
+        python = spec.get("python")
+        if isinstance(python, str) and python:
+            return python
+    except (OSError, ValueError, AttributeError):
+        pass
+    if os.path.basename(sys.executable).lower().startswith("python"):
+        return sys.executable
+    return None
+
+
 def _truthy(raw: Optional[str]) -> bool:
     return str(raw).strip().lower() in {"1", "true", "yes", "on"} if raw else False
 
@@ -276,7 +304,9 @@ class PluginServer:
     def _spawn_supervisor(self, host: str, port: int) -> None:
         import subprocess
 
-        python = os.environ.get("IDA_MCP_SUPERVISOR_PYTHON") or sys.executable
+        python = _supervisor_python()
+        if not python:
+            return  # inside IDA sys.executable is the IDA binary — never launch that.
         argv = [
             python,
             "-m",
