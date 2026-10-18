@@ -44,7 +44,10 @@ CATEGORY_LOADER = "loader"
 CATEGORY_ANTIDBG = "anti-debug"
 
 # Ordered so an earlier category wins when a name matches more than one bucket.
-_IMPORT_KEYWORDS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
+# Each entry is ``(category, substring keywords, exact names)``. Short or common
+# words that collide with unrelated APIs (``send`` -> ``SendMessageW``, ``system``
+# -> ``GetSystemInfo``, ``des`` -> ``SetThreadDescription``) are exact names only.
+_IMPORT_KEYWORDS: Tuple[Tuple[str, Tuple[str, ...], Tuple[str, ...]], ...] = (
     (
         CATEGORY_ANTIDBG,
         (
@@ -54,6 +57,7 @@ _IMPORT_KEYWORDS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
             "outputdebugstring",
             "debugactiveprocess",
         ),
+        (),
     ),
     (
         CATEGORY_LOADER,
@@ -65,6 +69,7 @@ _IMPORT_KEYWORDS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
             "dlsym",
             "getmodulehandle",
         ),
+        (),
     ),
     (
         CATEGORY_CRYPTO,
@@ -73,36 +78,38 @@ _IMPORT_KEYWORDS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
             "bcrypt",
             "encrypt",
             "decrypt",
-            "aes",
-            "des",
+            "aes_",
+            "des_",
             "rc4",
             "md5",
-            "sha",
-            "rsa",
-            "hash",
+            "sha1",
+            "sha2",
+            "rsa_",
         ),
+        ("aes", "des"),
     ),
     (
         CATEGORY_NETWORK,
         (
             "socket",
-            "connect",
             "wsastartup",
-            "wsasocket",
-            "send",
+            "wsasend",
+            "wsaconnect",
+            "wsaaccept",
+            "connectex",
+            "acceptex",
+            "internetconnect",
             "recv",
             "inet",
             "gethostby",
             "getaddrinfo",
-            "bind",
-            "listen",
-            "accept",
             "winhttp",
             "internetopen",
             "urldownload",
             "http",
             "dnsquery",
         ),
+        ("connect", "send", "sendto", "bind", "listen", "accept"),
     ),
     (
         CATEGORY_PROCESS,
@@ -114,12 +121,12 @@ _IMPORT_KEYWORDS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
             "terminateprocess",
             "createthread",
             "createremotethread",
-            "system",
             "popen",
             "execv",
             "execl",
             "fork",
         ),
+        ("system", "wsystem"),
     ),
     (
         CATEGORY_FILESYSTEM,
@@ -137,8 +144,9 @@ _IMPORT_KEYWORDS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
             "fread",
             "fwrite",
             "unlink",
-            "remove",
+            "removedirectory",
         ),
+        ("remove",),
     ),
     (
         CATEGORY_REGISTRY,
@@ -150,6 +158,7 @@ _IMPORT_KEYWORDS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
             "regdelete",
             "regenum",
         ),
+        (),
     ),
     (
         CATEGORY_MEMORY,
@@ -168,6 +177,7 @@ _IMPORT_KEYWORDS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
             "writeprocessmemory",
             "readprocessmemory",
         ),
+        (),
     ),
 )
 
@@ -248,15 +258,16 @@ class SurveyService:
     def categorize_import(self, name: str, module: str) -> Optional[str]:
         """Return the authored category of an import, or ``None`` if unremarkable.
 
-        Matching is case-insensitive and substring-based over the symbol name;
-        the first category (in fixed priority order) whose keyword the name
-        contains wins.
+        Matching is case-insensitive over the symbol name: long keywords match as
+        substrings, ambiguous short ones only as the whole name (leading
+        underscores ignored); the first category (in fixed priority order) that
+        matches wins.
         """
         lowered = name.lower()
-        for category, keywords in _IMPORT_KEYWORDS:
-            for keyword in keywords:
-                if keyword in lowered:
-                    return category
+        bare = lowered.lstrip("_")
+        for category, keywords, exact in _IMPORT_KEYWORDS:
+            if bare in exact or any(keyword in lowered for keyword in keywords):
+                return category
         return None
 
     def categorize_string(self, value: str) -> str:

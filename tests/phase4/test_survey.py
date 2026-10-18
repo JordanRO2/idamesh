@@ -463,6 +463,42 @@ def test_categorize_import_returns_none_for_unremarkable(name):
     assert SurveyService().categorize_import(name, "") is None
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "GetSystemTimeAsFileTime",
+        "GetSystemDirectoryW",
+        "GetSystemInfo",
+        "SendMessageW",
+        "SetThreadDescription",
+        "DescribePixelFormat",
+        "DisconnectNamedPipe",
+        "NetShareEnum",
+        "RemovePropW",
+    ],
+)
+def test_categorize_import_ignores_substring_false_positives(name):
+    assert SurveyService().categorize_import(name, "") is None
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("send", CATEGORY_NETWORK),
+        ("recv", CATEGORY_NETWORK),
+        ("connect", CATEGORY_NETWORK),
+        ("WSASend", CATEGORY_NETWORK),
+        ("CryptEncrypt", CATEGORY_CRYPTO),
+        ("BCryptEncrypt", CATEGORY_CRYPTO),
+        ("system", CATEGORY_PROCESS),
+        ("_wsystem", CATEGORY_PROCESS),
+        ("CreateProcessW", CATEGORY_PROCESS),
+    ],
+)
+def test_categorize_import_keeps_true_positives(name, expected):
+    assert SurveyService().categorize_import(name, "") == expected
+
+
 def test_categorize_import_is_case_insensitive():
     service = SurveyService()
     assert service.categorize_import("CREATEFILEW", "") == CATEGORY_FILESYSTEM
