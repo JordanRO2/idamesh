@@ -72,6 +72,17 @@ def test_optional_scalar_coerces_null_and_value():
     assert coerce(7) == 7
 
 
+def test_optional_scalar_rejects_what_the_bare_type_rejects():
+    def f(a: Optional[int] = None, b: int = 0):
+        ...
+
+    params, _schema, _ = compile_signature(f)
+    by_name = _by_name(params)
+    for coerce in (by_name["a"].coerce, by_name["b"].coerce):
+        with pytest.raises(CoercionError):
+            coerce("5")
+
+
 def test_optional_constrained_type_uses_anyof_with_null():
     # A value-constrained member (enum) can't just widen ``type`` — null would
     # still fail the enum — so it unions with an explicit null branch.

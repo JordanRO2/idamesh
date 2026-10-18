@@ -326,7 +326,8 @@ class UnionAdapter(TypeAdapter):
             def coerce_single(value: Any, _inner: Compiled = inner) -> Any:
                 if value is None:
                     return None
-                return _try_members(value, [_inner])
+                # Same rules as the bare type: no JSON-string rescue of a scalar.
+                return _inner.coerce(value)
 
             schema = _nullable(dict(inner.schema)) if has_none else dict(inner.schema)
             return Compiled(
