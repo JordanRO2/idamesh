@@ -97,8 +97,12 @@ class WorkerClientPort(Protocol):
         port: int,
         frame: Mapping[str, Any],
         token: Optional[str] = None,
+        timeout: Optional[float] = None,
     ) -> Optional[Mapping[str, Any]]:
-        """Forward one JSON-RPC frame; return the parsed response (or ``None``)."""
+        """Forward one JSON-RPC frame; return the parsed response (or ``None``).
+
+        ``timeout`` overrides the client's default per-call deadline for this frame.
+        """
         ...
 
     def ping(self, *, host: str, port: int, token: Optional[str] = None) -> bool:

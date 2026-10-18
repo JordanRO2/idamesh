@@ -37,7 +37,7 @@ class RecordingClient:
     def __init__(self) -> None:
         self.forwards: List[Dict[str, Any]] = []
 
-    def forward(self, *, host, port, frame, token=None):
+    def forward(self, *, host, port, frame, token=None, timeout=None):
         self.forwards.append(
             {"host": host, "port": port, "frame": frame, "token": token}
         )
