@@ -53,6 +53,13 @@ _MOVE_MNEMONICS: frozenset = frozenset(
     {"mov", "movzx", "movsx", "movsxd", "lea", "movq", "movd"}
 )
 
+#: Mnemonics that zero a register when both operands are the same register.
+_ZEROING_MNEMONICS: frozenset = frozenset({"xor", "sub"})
+
+#: Register families a call clobbers in both x86-64 ABIs (System V + Win64
+#: intersection, so a callee-saved register of either ABI keeps its taint).
+_CALL_CLOBBERED: Tuple[str, ...] = ("rax", "rcx", "rdx", "r8", "r9", "r10", "r11")
+
 
 @dataclass(frozen=True)
 class Location:
@@ -279,6 +286,18 @@ class DataFlowService:
         self, insn: DecodedInstruction, tainted: Set[Location]
     ) -> None:
         """Update ``tainted`` in place with one instruction's copy/kill effect."""
+        mnemonic = insn.mnemonic.strip().lower()
+        if mnemonic == "call":
+            # The callee overwrites the return and caller-saved registers.
+            tainted.difference_update(Location("reg", reg) for reg in _CALL_CLOBBERED)
+            return
+        if mnemonic in _ZEROING_MNEMONICS:
+            # ``xor r, r`` / ``sub r, r`` is a pure definition of zero, not a read.
+            a, b = insn.operand(0), insn.operand(1)
+            loc = Location.of(a) if a is not None else None
+            if loc is not None and loc.kind == "reg" and b is not None and Location.of(b) == loc:
+                tainted.discard(loc)
+                return
         reads = self._locations(insn, want_read=True)
         writes = self._locations(insn, want_write=True)
         if tainted & reads:

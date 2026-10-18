@@ -327,6 +327,41 @@ def test_redefinition_of_the_argument_register_breaks_the_taint_path():
     assert paths == []
 
 
+def test_intervening_non_source_call_clobbers_the_return_register():
+    # recv taints rax, but strlen overwrites rax before it is copied to rdi.
+    instructions = [
+        _call(0x5000, "recv"),
+        _call(0x5004, "strlen"),
+        _mov(0x5008, _reg(0, "rdi", write=True), _reg(1, "rax", read=True)),
+        _call(0x500C, "system"),
+    ]
+
+    paths, _ = _trace(instructions)
+
+    assert paths == []
+
+
+@pytest.mark.parametrize("mnemonic", ["xor", "sub"])
+def test_zeroing_idiom_clears_taint(mnemonic):
+    instructions = [
+        _call(0x5100, "recv"),
+        DecodedInstruction(
+            ea=Address(0x5104),
+            mnemonic=mnemonic,
+            operands=(
+                _reg(0, "eax", read=True, write=True),
+                _reg(1, "eax", read=True),
+            ),
+        ),
+        _mov(0x5106, _reg(0, "rdi", write=True), _reg(1, "rax", read=True)),
+        _call(0x510A, "system"),
+    ]
+
+    paths, _ = _trace(instructions)
+
+    assert paths == []
+
+
 def test_same_stream_without_the_redefinition_does_reach_the_sink():
     # Control for the redefinition test: drop the killing store and the path returns.
     instructions = [
