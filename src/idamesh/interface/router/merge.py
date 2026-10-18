@@ -33,6 +33,7 @@ import collections.abc as cabc
 import itertools
 import json
 import os
+import socket
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
@@ -62,6 +63,11 @@ from idamesh.interface.router.ports import (
 _EXPORT_TOOL = "export_annotations"
 _APPLY_TOOL = "apply_annotations"
 _SNAPSHOT_TOOL = "idb_snapshot"
+
+#: Deadline (seconds) for the whole-database export/apply calls. They walk every
+#: function on the worker's single-threaded pump, so the client's default per-call
+#: timeout would abort them while the worker keeps executing.
+_ANNOTATION_CALL_TIMEOUT = 30 * 60.0
 
 #: Annotations per ``apply_annotations`` frame. The record travels as a request
 #: *argument*, so a whole database's worth would exceed the transport's body cap;
@@ -381,7 +387,9 @@ class MergeOrchestrator:
         records: List[Tuple[str, AnnotationRecord]] = []
         for session in sessions:
             try:
-                structured = self._call_worker_tool(session, _EXPORT_TOOL, {})
+                structured = self._call_worker_tool(
+                    session, _EXPORT_TOOL, {}, _ANNOTATION_CALL_TIMEOUT
+                )
             except MergeError:
                 unreachable.append(session.session_id)
                 continue
@@ -411,8 +419,14 @@ class MergeOrchestrator:
         """
         for attempt in range(_BASELINE_CAPTURE_ATTEMPTS):
             try:
-                structured = self._call_worker_tool(session, _EXPORT_TOOL, {})
-            except MergeError:
+                structured = self._call_worker_tool(
+                    session, _EXPORT_TOOL, {}, _ANNOTATION_CALL_TIMEOUT
+                )
+            except MergeError as exc:
+                if _caused_by_timeout(exc):
+                    # The worker is still busy with this export; a retry would
+                    # only queue another full walk behind it.
+                    return None
                 # Transient blip right after the handshake; retry so the session
                 # is not left baseline-less (which would force a merge refusal).
                 if attempt + 1 < _BASELINE_CAPTURE_ATTEMPTS:
@@ -509,7 +523,9 @@ class MergeOrchestrator:
 
         agreed_sha, agreed_imagebase = _agreed_provenance(records)
         try:
-            structured = self._call_worker_tool(target, _EXPORT_TOOL, {})
+            structured = self._call_worker_tool(
+                target, _EXPORT_TOOL, {}, _ANNOTATION_CALL_TIMEOUT
+            )
         except MergeError as exc:
             return (
                 f"merge refused: target '{target.session_id}' provenance could not "
@@ -568,7 +584,7 @@ class MergeOrchestrator:
         for done, chunk in enumerate(_split_wire(wire, _APPLY_BATCH_ITEMS)):
             try:
                 structured = self._call_worker_tool(
-                    target, _APPLY_TOOL, {"record": chunk}
+                    target, _APPLY_TOOL, {"record": chunk}, _ANNOTATION_CALL_TIMEOUT
                 ) or {}
             except MergeError as exc:
                 # Earlier chunks are already live in the target; say so.
@@ -619,7 +635,11 @@ class MergeOrchestrator:
     # -- worker call helper --------------------------------------------------
 
     def _call_worker_tool(
-        self, session: SessionView, name: str, arguments: Mapping[str, Any]
+        self,
+        session: SessionView,
+        name: str,
+        arguments: Mapping[str, Any],
+        timeout: Optional[float] = None,
     ) -> Optional[Mapping[str, Any]]:
         """Forward one worker ``tools/call`` and return its ``structuredContent``.
 
@@ -638,6 +658,7 @@ class MergeOrchestrator:
                 port=session.port,
                 frame=frame,
                 token=session.token,
+                timeout=timeout,
             )
         except Exception as exc:  # noqa: BLE001 — transport failure → merge-level
             raise MergeError(
@@ -723,6 +744,15 @@ class MergeOrchestrator:
             f"'{name}' on session '{session.session_id}' overflowed to {uri} "
             "but the payload came back empty"
         )
+
+
+def _caused_by_timeout(exc: BaseException) -> bool:
+    """Whether a socket timeout sits anywhere in ``exc``'s cause chain."""
+    while exc is not None:
+        if isinstance(exc, socket.timeout):
+            return True
+        exc = exc.__cause__
+    return False
 
 
 def _overflow_ref(result: Mapping[str, Any]) -> Optional[str]:

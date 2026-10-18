@@ -108,9 +108,13 @@ class WorkerClient:
         port: int,
         frame: Mapping[str, Any],
         token: Optional[str] = None,
+        timeout: Optional[float] = None,
     ) -> Optional[Dict[str, Any]]:
         """Forward one JSON-RPC ``frame`` to the worker and return its parsed
         response (``None`` for a notification/response-only frame).
+
+        ``timeout`` overrides ``call_timeout`` for this frame only (long-running
+        tools such as a whole-database export).
 
         Ensures the worker's MCP session is initialized first. If the worker
         rejects the cached session id as stale, the id is forgotten, the lifecycle
@@ -124,7 +128,7 @@ class WorkerClient:
             session_id = self._ensure_session(host, port, token)
             try:
                 response, _assigned = self._http_call(
-                    host, port, frame, token, session_id
+                    host, port, frame, token, session_id, timeout
                 )
             except _StaleSession:
                 # Rejected at the transport (HTTP 404 unknown session).
@@ -215,6 +219,7 @@ class WorkerClient:
         frame: Mapping[str, Any],
         token: Optional[str],
         session_id: Optional[str],
+        timeout: Optional[float] = None,
     ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         """POST one frame to the worker; return ``(parsed_response, assigned_sid)``.
 
@@ -234,7 +239,7 @@ class WorkerClient:
         if token:
             headers["Authorization"] = f"Bearer {token}"
 
-        status, data, assigned = self._post(host, port, body, headers)
+        status, data, assigned = self._post(host, port, body, headers, timeout)
 
         if status == 202 or not data:
             return None, assigned
@@ -262,6 +267,7 @@ class WorkerClient:
         port: int,
         body: bytes,
         headers: Mapping[str, str],
+        timeout: Optional[float] = None,
     ) -> Tuple[int, bytes, Optional[str]]:
         """POST ``body`` to ``/mcp`` and return ``(status, data, assigned_sid)``.
 
@@ -271,7 +277,9 @@ class WorkerClient:
         """
         last_exc: Optional[BaseException] = None
         for attempt in range(self._max_connect_retries + 1):
-            conn = http.client.HTTPConnection(host, port, timeout=self._call_timeout)
+            conn = http.client.HTTPConnection(
+                host, port, timeout=timeout or self._call_timeout
+            )
             try:
                 conn.request("POST", _ENDPOINT, body, dict(headers))
                 resp = conn.getresponse()

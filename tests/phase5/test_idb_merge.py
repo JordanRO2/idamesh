@@ -35,6 +35,7 @@ Locked in here:
 from __future__ import annotations
 
 import itertools
+import socket
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import pytest
@@ -210,8 +211,11 @@ class FakeWorkerClient:
         port: int,
         frame: Mapping[str, Any],
         token: Optional[str] = None,
+        timeout: Optional[float] = None,
     ) -> Optional[Mapping[str, Any]]:
-        self.forwards.append({"host": host, "port": port, "frame": dict(frame), "token": token})
+        self.forwards.append(
+            {"host": host, "port": port, "frame": dict(frame), "token": token, "timeout": timeout}
+        )
         endpoint = self._hub.by_port.get(port)
         if endpoint is None:
             raise ConnectionRefusedError(f"no endpoint at {host}:{port}")
@@ -447,6 +451,29 @@ def test_merge_uses_per_session_baselines_and_opens_no_worker():
     assert "baseline_missing" not in result
     # The old single-baseline-session key is gone.
     assert "baseline_session" not in result
+
+
+def test_baseline_capture_uses_the_long_annotation_timeout():
+    env = Env()
+    session = env.pool.add_source("sess-1", FakeEndpoint(export=_wire(names={0x1000: "a"})))
+    env.orch.capture_pristine_baseline(session)
+    assert env.client.forwards[0]["timeout"] == merge_module._ANNOTATION_CALL_TIMEOUT
+
+
+def test_baseline_capture_is_not_retried_after_a_timeout():
+    class TimingOutClient:
+        calls = 0
+
+        def forward(self, **_kwargs):
+            self.calls += 1
+            raise socket.timeout("timed out")
+
+    env = Env()
+    session = env.pool.add_source("sess-1", FakeEndpoint(export=_wire()))
+    client = TimingOutClient()
+    orch = MergeOrchestrator(pool=env.pool, client=client)
+    assert orch.capture_pristine_baseline(session) is None
+    assert client.calls == 1  # the worker is still busy with the first export
 
 
 def test_source_without_a_captured_baseline_refuses_the_merge():

@@ -262,6 +262,8 @@ class FakeWorkerHub:
 
     def __init__(self) -> None:
         self.endpoints: Dict[Tuple[str, int], FakeEndpoint] = {}
+        #: Socket timeout of every connection opened, in order.
+        self.timeouts: List[Any] = []
 
     def register(self, host: str, port: int, **kwargs: Any) -> FakeEndpoint:
         endpoint = FakeEndpoint(host, port, **kwargs)
@@ -273,6 +275,7 @@ class FakeWorkerHub:
 
         class _FakeHTTPConnection:
             def __init__(self, host: str, port: int, timeout: Any = None) -> None:
+                hub.timeouts.append(timeout)
                 self._host = host
                 self._port = port
                 self._pending: Optional[Tuple[str, bytes, Dict[str, str]]] = None
@@ -827,6 +830,15 @@ def test_client_retries_a_refused_connection(client, hub):
     response = client.forward(host="127.0.0.1", port=45001, frame=_forward_frame())
     assert response["result"] == {"served_by": 45001}
     assert endpoint.refuse_count == 0  # both refusals consumed by retries
+
+
+def test_client_forward_timeout_overrides_default_for_that_frame_only(client, hub):
+    hub.register("127.0.0.1", 45001)
+    client.forward(host="127.0.0.1", port=45001, frame=_forward_frame(), timeout=1800.0)
+    client.forward(host="127.0.0.1", port=45001, frame=_forward_frame())
+    # initialize + initialized use the default; the long frame gets its own; the
+    # next call is back on the default.
+    assert hub.timeouts == [120.0, 120.0, 1800.0, 120.0]
 
 
 def test_client_gives_up_after_exhausting_connect_retries(hub):
