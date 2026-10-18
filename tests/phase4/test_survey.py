@@ -615,6 +615,16 @@ def test_not_truncated_when_all_functions_scanned():
     assert survey.truncated is False
 
 
+def test_truncated_when_imports_exceed_scan():
+    use_case = _use_case(imports=_FakeImports([_import("CreateFileW")], total=5000))
+    assert use_case.execute(SurveyBinaryCommand()).survey.truncated is True
+
+
+def test_truncated_when_strings_exceed_scan():
+    use_case = _use_case(strings=_FakeStrings([_string("hi")], total=5000))
+    assert use_case.execute(SurveyBinaryCommand()).survey.truncated is True
+
+
 def test_empty_database_yields_zeroed_survey():
     survey = _use_case().execute(SurveyBinaryCommand()).survey
     assert survey.counts == SurveyCounts(functions=0, imports=0, strings=0, segments=4)

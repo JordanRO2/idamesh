@@ -89,8 +89,8 @@ class SurveyBinaryUseCase:
         functions = list(func_page.items)
 
         roles, top_functions = self._classify_functions(functions, detail)
-        notable_imports = self._collect_notable_imports()
-        string_categories = self._summarize_strings()
+        notable_imports, imports_cut = self._collect_notable_imports(import_total)
+        string_categories, strings_cut = self._summarize_strings(string_total)
 
         entrypoints: Tuple = tuple(
             ea for ea in (metadata.entrypoint,) if ea is not None
@@ -106,7 +106,7 @@ class SurveyBinaryUseCase:
             counts=counts,
             detail_level=detail,
             scanned_functions=len(functions),
-            truncated=function_total > len(functions),
+            truncated=function_total > len(functions) or imports_cut or strings_cut,
             entrypoints=entrypoints,
             roles=roles,
             notable_imports=notable_imports,
@@ -161,7 +161,9 @@ class SurveyBinaryUseCase:
         )
         return roles, top
 
-    def _collect_notable_imports(self) -> Tuple[NotableImport, ...]:
+    def _collect_notable_imports(
+        self, total: int
+    ) -> Tuple[Tuple[NotableImport, ...], bool]:
         page = self._imports.list(PageRequest.of(0, SURVEY_IMPORT_SCAN).clamp())
         notable: List[NotableImport] = []
         for imp in page.items:
@@ -178,15 +180,17 @@ class SurveyBinaryUseCase:
             )
             if len(notable) >= SURVEY_NOTABLE_IMPORTS:
                 break
-        return tuple(notable)
+        return tuple(notable), page.truncated or total > len(page.items)
 
-    def _summarize_strings(self) -> Tuple[StringCategoryTally, ...]:
+    def _summarize_strings(
+        self, total: int
+    ) -> Tuple[Tuple[StringCategoryTally, ...], bool]:
         page = self._strings.list(PageRequest.of(0, SURVEY_STRING_SCAN).clamp())
         counts: Dict[str, int] = {}
         for item in page.items:
             category = self._survey.categorize_string(item.value)
             counts[category] = counts.get(category, 0) + 1
-        return tuple(
+        tallies = tuple(
             sorted(
                 (
                     StringCategoryTally(category=category, count=count)
@@ -196,6 +200,7 @@ class SurveyBinaryUseCase:
                 reverse=True,
             )
         )
+        return tallies, page.truncated or total > len(page.items)
 
     def _safe_refs_to(self, ea):
         try:
