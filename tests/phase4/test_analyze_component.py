@@ -100,7 +100,10 @@ class _FakeFunctionRepository:
         return self._functions.get(int(ea))
 
     # Present only to satisfy the port shape; unused by the roll-up.
-    def get_containing(self, ea: Address) -> Optional[Function]:  # pragma: no cover
+    def get_containing(self, ea: Address) -> Optional[Function]:
+        for func in self._functions.values():
+            if func.ea.value <= int(ea) < func.ea.value + func.size:
+                return func
         return None
 
     def list(self, page: PageRequest) -> Page[Function]:  # pragma: no cover
@@ -401,6 +404,23 @@ def test_use_case_resolves_hex_selector_and_rolls_up():
     assert isinstance(result, AnalyzeComponentResult)
     assert result.component.root == Address(ROOT)
     assert result.component.member_count == 4
+
+
+def test_use_case_interior_address_maps_to_owning_function():
+    use_case = _make_use_case(_diamond_graph(), _diamond_functions())
+
+    result = use_case.execute(AnalyzeComponentCommand(address=hex(ROOT + 4), depth=3))
+
+    assert result.component.root == Address(ROOT)
+    assert result.component.member_count == 4
+    assert _member_map(result.component)[ROOT].name == "rootA"
+
+
+def test_use_case_address_in_no_function_raises():
+    use_case = _make_use_case(_diamond_graph(), _diamond_functions())
+
+    with pytest.raises(LookupError):
+        use_case.execute(AnalyzeComponentCommand(address="0x9999999"))
 
 
 def test_use_case_resolves_symbol_selector():

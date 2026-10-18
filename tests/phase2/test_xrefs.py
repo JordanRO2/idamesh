@@ -20,6 +20,7 @@ from idamesh.application.dto.xrefs import (
 )
 from idamesh.domain.entities.xref import Xref, XrefKind, XrefType
 from idamesh.domain.values.address import Address, Selector
+from tests.fakes.functions import FakeContainingFunctions
 from idamesh.interface.catalog.callees import callee_view, callees_view
 from idamesh.interface.catalog.xrefs import xref_view, xrefs_to_view
 
@@ -216,7 +217,7 @@ def test_callees_resolves_and_echoes_function():
             ]
         }
     )
-    use_case = CalleesUseCase(repo, _FakeDatabase())
+    use_case = CalleesUseCase(repo, _FakeDatabase(), FakeContainingFunctions())
 
     result = use_case.execute(CalleesCommand(address="0x401000"))
 
@@ -230,7 +231,7 @@ def test_callees_resolves_symbol_anchor():
     func = 0x408000
     repo = _FakeXrefRepository(calls={func: [_call_edge(0x408010, 0x409000, "sub")]})
     database = _FakeDatabase(symbols={"start": func})
-    use_case = CalleesUseCase(repo, database)
+    use_case = CalleesUseCase(repo, database, FakeContainingFunctions())
 
     result = use_case.execute(CalleesCommand(address="start"))
 
@@ -245,7 +246,7 @@ def test_callees_caps_and_flags_truncation():
         for i in range(CALLEES_LIMIT + 10)
     ]
     repo = _FakeXrefRepository(calls={func: edges})
-    use_case = CalleesUseCase(repo, _FakeDatabase())
+    use_case = CalleesUseCase(repo, _FakeDatabase(), FakeContainingFunctions())
 
     result = use_case.execute(CalleesCommand(address=hex(func)))
 
@@ -255,11 +256,27 @@ def test_callees_caps_and_flags_truncation():
 
 def test_callees_out_of_function_propagates_error():
     orphan = 0x600100
-    repo = _FakeXrefRepository(no_function={orphan})
-    use_case = CalleesUseCase(repo, _FakeDatabase())
+    repo = _FakeXrefRepository()
+    use_case = CalleesUseCase(
+        repo, _FakeDatabase(), FakeContainingFunctions(no_function={orphan})
+    )
 
     with pytest.raises(LookupError):
         use_case.execute(CalleesCommand(address=hex(orphan)))
+
+
+def test_callees_interior_address_maps_to_owning_function():
+    func = 0x401000
+    repo = _FakeXrefRepository(calls={func: [_call_edge(0x401010, 0x402000, "h")]})
+    use_case = CalleesUseCase(
+        repo, _FakeDatabase(), FakeContainingFunctions(owners={0x401050: func})
+    )
+
+    result = use_case.execute(CalleesCommand(address="0x401050"))
+
+    assert result.func == Address(func)
+    assert repo.callees_seen == [Address(func)]
+    assert [edge.target.value for edge in result.callees] == [0x402000]
 
 
 # -- callees view -----------------------------------------------------------

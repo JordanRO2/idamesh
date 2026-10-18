@@ -44,13 +44,17 @@ class AnalyzeComponentUseCase:
     def execute(self, command: AnalyzeComponentCommand) -> AnalyzeComponentResult:
         """Resolve ``command.address`` and roll up its call subtree.
 
-        The selector is parsed and resolved against the database gateway; the
-        depth is clamped to :data:`MAX_COMPONENT_DEPTH`. An out-of-range,
+        The selector is parsed, resolved against the database gateway, and
+        mapped to its owning function's entry; the depth is clamped to :data:`MAX_COMPONENT_DEPTH`. An out-of-range,
         unresolvable, or out-of-function root surfaces as the underlying error,
         which the interface layer renders as an ``isError`` result.
         """
         selector = Selector.parse(command.address)
-        root = self._database.resolve(selector)
+        ea = self._database.resolve(selector)
+        func = self._functions.get_containing(ea)
+        if func is None:
+            raise LookupError(f"no function contains {ea.hex()}")
+        root = func.ea
         depth = self._clamp_depth(command.depth)
         component = self._component.assemble(
             root,

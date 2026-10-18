@@ -250,10 +250,12 @@ def build_worker_container(
     decompile_use_case = DecompileUseCase(decompiler, database)
     list_imports_use_case = ListImportsUseCase(imports_repo)
     xrefs_to_use_case = XrefsToUseCase(xrefs_repo, database)
-    callees_use_case = CalleesUseCase(xrefs_repo, database)
+    callees_use_case = CalleesUseCase(xrefs_repo, database, functions)
     disasm_use_case = DisasmUseCase(disassembly, database)
-    callgraph_use_case = CallgraphUseCase(xrefs_repo, database)
-    basic_blocks_use_case = BasicBlocksUseCase(basic_blocks_gateway, database)
+    callgraph_use_case = CallgraphUseCase(xrefs_repo, database, functions)
+    basic_blocks_use_case = BasicBlocksUseCase(
+        basic_blocks_gateway, database, functions
+    )
     func_profile_use_case = FuncProfileUseCase(
         functions, xrefs_repo, basic_blocks_gateway, database
     )

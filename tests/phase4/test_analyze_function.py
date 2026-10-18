@@ -251,7 +251,7 @@ def _build_use_case(
         ),
         decompile=DecompileUseCase(decompiler=decompiler, database=database),
         xrefs_to=XrefsToUseCase(xrefs=xrefs, database=database),
-        callees=CalleesUseCase(xrefs=xrefs, database=database),
+        callees=CalleesUseCase(xrefs=xrefs, database=database, functions=functions),
         imports=imports,
     )
 

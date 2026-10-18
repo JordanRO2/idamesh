@@ -21,6 +21,7 @@ from idamesh.domain.entities.call_graph import CallGraph, CallGraphEdge, CallGra
 from idamesh.domain.entities.xref import Xref, XrefKind, XrefType
 from idamesh.domain.services.call_graph import DEFAULT_MAX_NODES, CallGraphService
 from idamesh.domain.values.address import Address, Selector
+from tests.fakes.functions import FakeContainingFunctions
 from idamesh.interface.catalog.callgraph import (
     call_graph_edge_view,
     call_graph_node_view,
@@ -294,7 +295,7 @@ def test_build_dedupes_repeated_edge_to_same_target():
 
 
 def test_use_case_resolves_hex_and_builds_graph():
-    use_case = CallgraphUseCase(_chain(), _FakeDatabase())
+    use_case = CallgraphUseCase(_chain(), _FakeDatabase(), FakeContainingFunctions())
 
     result = use_case.execute(CallgraphCommand(address="0xa", depth=3))
 
@@ -307,28 +308,46 @@ def test_use_case_resolves_decimal_and_symbol():
     repo = _FakeXrefRepository(calls={0xA: [_edge(0xB, "B")]})
     database = _FakeDatabase(symbols={"start": 0xA})
 
-    dec = CallgraphUseCase(repo, _FakeDatabase()).execute(
+    dec = CallgraphUseCase(repo, _FakeDatabase(), FakeContainingFunctions()).execute(
         CallgraphCommand(address="10")
     )
     assert dec.graph.root == Address(0xA)
 
-    sym = CallgraphUseCase(repo, database).execute(CallgraphCommand(address="start"))
+    sym = CallgraphUseCase(repo, database, FakeContainingFunctions()).execute(
+        CallgraphCommand(address="start")
+    )
     assert sym.graph.root == Address(0xA)
 
 
 def test_use_case_unresolvable_symbol_raises():
-    use_case = CallgraphUseCase(_FakeXrefRepository(), _FakeDatabase())
+    use_case = CallgraphUseCase(_FakeXrefRepository(), _FakeDatabase(), FakeContainingFunctions())
 
     with pytest.raises(ValueError):
         use_case.execute(CallgraphCommand(address="ghost"))
 
 
 def test_use_case_out_of_function_propagates_error():
-    repo = _FakeXrefRepository(no_function={0xA})
-    use_case = CallgraphUseCase(repo, _FakeDatabase())
+    use_case = CallgraphUseCase(
+        _FakeXrefRepository(),
+        _FakeDatabase(),
+        FakeContainingFunctions(no_function={0xA}),
+    )
 
     with pytest.raises(LookupError):
         use_case.execute(CallgraphCommand(address="0xa"))
+
+
+def test_use_case_interior_address_roots_at_owning_function():
+    use_case = CallgraphUseCase(
+        _FakeXrefRepository(calls={0xA: [_edge(0xB, "B")]}),
+        _FakeDatabase(),
+        FakeContainingFunctions(owners={0xA5: 0xA}),
+    )
+
+    result = use_case.execute(CallgraphCommand(address="0xa5", depth=1))
+
+    assert result.graph.root == Address(0xA)
+    assert sorted(n.address.value for n in result.graph.nodes) == [0xA, 0xB]
 
 
 class _SpyService:
@@ -345,7 +364,7 @@ class _SpyService:
 
 
 def test_use_case_clamps_depth_to_server_maximum():
-    use_case = CallgraphUseCase(_FakeXrefRepository(), _FakeDatabase())
+    use_case = CallgraphUseCase(_FakeXrefRepository(), _FakeDatabase(), FakeContainingFunctions())
     spy = _SpyService()
     use_case._service = spy  # type: ignore[assignment]
 
@@ -356,7 +375,7 @@ def test_use_case_clamps_depth_to_server_maximum():
 
 
 def test_use_case_floors_negative_depth_at_zero():
-    use_case = CallgraphUseCase(_FakeXrefRepository(), _FakeDatabase())
+    use_case = CallgraphUseCase(_FakeXrefRepository(), _FakeDatabase(), FakeContainingFunctions())
     spy = _SpyService()
     use_case._service = spy  # type: ignore[assignment]
 
@@ -366,7 +385,7 @@ def test_use_case_floors_negative_depth_at_zero():
 
 
 def test_use_case_passes_in_range_depth_through():
-    use_case = CallgraphUseCase(_FakeXrefRepository(), _FakeDatabase())
+    use_case = CallgraphUseCase(_FakeXrefRepository(), _FakeDatabase(), FakeContainingFunctions())
     spy = _SpyService()
     use_case._service = spy  # type: ignore[assignment]
 

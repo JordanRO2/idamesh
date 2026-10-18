@@ -19,6 +19,7 @@ from idamesh.application.dto.basic_blocks import (
 )
 from idamesh.domain.entities.basic_block import BasicBlock
 from idamesh.domain.values.address import Address, Selector
+from tests.fakes.functions import FakeContainingFunctions
 from idamesh.interface.catalog.basic_blocks import (
     basic_block_view,
     basic_blocks_view,
@@ -80,7 +81,7 @@ def test_basic_blocks_resolves_hex_and_returns_blocks():
             ]
         }
     )
-    use_case = BasicBlocksUseCase(gateway, _FakeDatabase())
+    use_case = BasicBlocksUseCase(gateway, _FakeDatabase(), FakeContainingFunctions())
 
     result = use_case.execute(BasicBlocksCommand(address="0x401000"))
 
@@ -97,7 +98,7 @@ def test_basic_blocks_resolves_decimal_and_symbol():
         blocks={4227072: [_block(4227072, 4227088)], func: [_block(func, func + 8)]}
     )
     database = _FakeDatabase(symbols={"start": func})
-    use_case = BasicBlocksUseCase(gateway, database)
+    use_case = BasicBlocksUseCase(gateway, database, FakeContainingFunctions())
 
     dec = use_case.execute(BasicBlocksCommand(address="4227072"))
     assert dec.func == Address(4227072)
@@ -108,7 +109,9 @@ def test_basic_blocks_resolves_decimal_and_symbol():
 
 
 def test_basic_blocks_unresolvable_symbol_raises():
-    use_case = BasicBlocksUseCase(_FakeBasicBlockGateway(), _FakeDatabase())
+    use_case = BasicBlocksUseCase(
+        _FakeBasicBlockGateway(), _FakeDatabase(), FakeContainingFunctions()
+    )
 
     with pytest.raises(ValueError):
         use_case.execute(BasicBlocksCommand(address="nope"))
@@ -121,7 +124,7 @@ def test_basic_blocks_caps_and_flags_truncation():
         for i in range(MAX_BASIC_BLOCKS + 15)
     ]
     gateway = _FakeBasicBlockGateway(blocks={func: blocks})
-    use_case = BasicBlocksUseCase(gateway, _FakeDatabase())
+    use_case = BasicBlocksUseCase(gateway, _FakeDatabase(), FakeContainingFunctions())
 
     result = use_case.execute(BasicBlocksCommand(address=hex(func)))
 
@@ -136,7 +139,7 @@ def test_basic_blocks_at_limit_is_not_truncated():
         for i in range(MAX_BASIC_BLOCKS)
     ]
     gateway = _FakeBasicBlockGateway(blocks={func: blocks})
-    use_case = BasicBlocksUseCase(gateway, _FakeDatabase())
+    use_case = BasicBlocksUseCase(gateway, _FakeDatabase(), FakeContainingFunctions())
 
     result = use_case.execute(BasicBlocksCommand(address=hex(func)))
 
@@ -146,11 +149,29 @@ def test_basic_blocks_at_limit_is_not_truncated():
 
 def test_basic_blocks_out_of_function_propagates_error():
     orphan = 0x600100
-    gateway = _FakeBasicBlockGateway(no_function={orphan})
-    use_case = BasicBlocksUseCase(gateway, _FakeDatabase())
+    gateway = _FakeBasicBlockGateway()
+    use_case = BasicBlocksUseCase(
+        gateway, _FakeDatabase(), FakeContainingFunctions(no_function={orphan})
+    )
 
     with pytest.raises(LookupError):
         use_case.execute(BasicBlocksCommand(address=hex(orphan)))
+
+
+def test_basic_blocks_interior_address_maps_to_owning_function():
+    func = 0x401000
+    gateway = _FakeBasicBlockGateway(blocks={func: [_block(func, func + 0x20)]})
+    use_case = BasicBlocksUseCase(
+        gateway,
+        _FakeDatabase(),
+        FakeContainingFunctions(owners={0x401050: func}),
+    )
+
+    result = use_case.execute(BasicBlocksCommand(address="0x401050"))
+
+    assert result.func == Address(func)
+    assert gateway.blocks_seen == [Address(func)]
+    assert [b.start.value for b in result.blocks] == [func]
 
 
 # -- view -------------------------------------------------------------------

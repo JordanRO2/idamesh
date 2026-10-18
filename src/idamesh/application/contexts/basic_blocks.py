@@ -14,6 +14,7 @@ from idamesh.application.dto.basic_blocks import (
 )
 from idamesh.domain.ports.basic_blocks import BasicBlockGateway
 from idamesh.domain.ports.database import DatabaseGateway
+from idamesh.domain.ports.functions import FunctionRepository
 from idamesh.domain.values.address import Selector
 
 
@@ -24,21 +25,27 @@ class BasicBlocksUseCase:
         self,
         blocks: BasicBlockGateway,
         database: DatabaseGateway,
+        functions: FunctionRepository,
     ) -> None:
         self._blocks = blocks
         self._database = database
+        self._functions = functions
 
     def execute(self, command: BasicBlocksCommand) -> BasicBlocksResult:
         """Resolve ``command.address`` and collect its function's blocks.
 
-        The selector is resolved to a concrete address; the gateway recovers the
-        owning function's flow-chart blocks. The reply is capped at
+        The selector is resolved to a concrete address and mapped to its owning
+        function, whose flow-chart blocks the gateway then recovers. The reply is capped at
         :data:`MAX_BASIC_BLOCKS`, with ``truncated`` set when the cap elided
         blocks. An address inside no function surfaces as the gateway's error,
         which the interface layer renders as an ``isError`` result.
         """
         selector = Selector.parse(command.address)
-        func = self._database.resolve(selector)
+        ea = self._database.resolve(selector)
+        owner = self._functions.get_containing(ea)
+        if owner is None:
+            raise LookupError(f"no function contains {ea.hex()}")
+        func = owner.ea
         blocks = self._blocks.blocks(func)
         kept = tuple(blocks[:MAX_BASIC_BLOCKS])
         return BasicBlocksResult(

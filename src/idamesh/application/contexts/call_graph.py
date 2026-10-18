@@ -16,6 +16,7 @@ from idamesh.application.dto.call_graph import (
     CallgraphResult,
 )
 from idamesh.domain.ports.database import DatabaseGateway
+from idamesh.domain.ports.functions import FunctionRepository
 from idamesh.domain.ports.xrefs import XrefRepository
 from idamesh.domain.services.call_graph import CallGraphService
 from idamesh.domain.values.address import Selector
@@ -24,22 +25,33 @@ from idamesh.domain.values.address import Selector
 class CallgraphUseCase:
     """Resolve a selector and build the bounded call graph rooted at it."""
 
-    def __init__(self, xrefs: XrefRepository, database: DatabaseGateway) -> None:
+    def __init__(
+        self,
+        xrefs: XrefRepository,
+        database: DatabaseGateway,
+        functions: FunctionRepository,
+    ) -> None:
         self._xrefs = xrefs
         self._database = database
+        self._functions = functions
         self._service = CallGraphService()
 
     def execute(self, command: CallgraphCommand) -> CallgraphResult:
         """Resolve ``command.address`` and traverse its call graph.
 
-        The selector is parsed and resolved to the root function; ``depth`` is
+        The selector is parsed and resolved, then mapped to its owning function
+        (an address inside no function raises ``LookupError``); ``depth`` is
         clamped to :data:`MAX_CALLGRAPH_DEPTH` (and floored at zero), and the
         traversal is bounded at :data:`MAX_CALLGRAPH_NODES`. An out-of-range or
         unresolvable address surfaces as the gateway's error, which the interface
         layer renders as an ``isError`` result.
         """
         selector = Selector.parse(command.address)
-        root = self._database.resolve(selector)
+        ea = self._database.resolve(selector)
+        func = self._functions.get_containing(ea)
+        if func is None:
+            raise LookupError(f"no function contains {ea.hex()}")
+        root = func.ea
         depth = command.depth
         if depth < 0:
             depth = 0
