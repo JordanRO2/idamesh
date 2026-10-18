@@ -32,6 +32,10 @@ from idamesh.domain.ports.memory import MemoryGateway
 from idamesh.domain.values.address import Address, Selector
 
 
+#: Largest ``get_bytes`` read; bounds the reply (and the hex it is rendered as).
+MAX_GET_BYTES: int = 1 << 20
+
+
 def _byte_order(endianness: Endianness) -> str:
     """Map a domain :class:`Endianness` to the ``int.from_bytes`` order token."""
     return "big" if endianness is Endianness.BIG else "little"
@@ -87,11 +91,15 @@ class GetBytesUseCase:
 
         The selector is parsed and resolved against the database gateway; the
         memory gateway then returns the raw bytes, wrapped as a
-        :class:`~idamesh.domain.entities.memory.ByteRead`. A non-positive size, an
-        unresolvable address, or an unreadable region surfaces as an error the
+        :class:`~idamesh.domain.entities.memory.ByteRead`. A non-positive size or
+        one above :data:`MAX_GET_BYTES`, an unresolvable address, or an unreadable region surfaces as an error the
         interface layer renders as an ``isError`` result.
         """
         _require_positive_size(command.size)
+        if command.size > MAX_GET_BYTES:
+            raise ValueError(
+                f"size must be at most {MAX_GET_BYTES}, got {command.size}"
+            )
         selector = Selector.parse(command.address)
         ea = self._database.resolve(selector)
         data = self._memory.read_bytes(ea, command.size)

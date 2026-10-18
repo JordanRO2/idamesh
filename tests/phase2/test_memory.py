@@ -16,6 +16,7 @@ from typing import Optional
 import pytest
 
 from idamesh.application.contexts.memory import (
+    MAX_GET_BYTES,
     GetBytesUseCase,
     GetGlobalValueUseCase,
     GetIntUseCase,
@@ -147,6 +148,17 @@ def test_get_bytes_rejects_non_positive_size():
         use_case.execute(GetBytesCommand(address="0x1000", size=0))
     with pytest.raises(ValueError):
         use_case.execute(GetBytesCommand(address="0x1000", size=-4))
+
+
+def test_get_bytes_rejects_size_above_the_maximum():
+    memory = _FakeMemory(blobs={0x1000: b""})
+    use_case = GetBytesUseCase(memory, _FakeDatabase())
+
+    with pytest.raises(ValueError, match="at most"):
+        use_case.execute(GetBytesCommand(address="0x1000", size=MAX_GET_BYTES + 1))
+    assert memory.read_bytes_seen == []
+    # The limit itself is still allowed.
+    use_case.execute(GetBytesCommand(address="0x1000", size=MAX_GET_BYTES))
 
 
 def test_get_bytes_unreadable_region_raises():
