@@ -734,6 +734,27 @@ def test_resource_read_is_not_routable(router):
     assert excinfo.value.code == ErrorCode.INVALID_PARAMS
 
 
+def test_overflow_ref_read_is_routed_to_the_owning_session(router, pool, hub):
+    ref = "mcpref://overflow/" + "a" * 64
+    truncated = {
+        "structuredContent": {"items": []},
+        "_meta": {"com.idamesh/overflow": {"truncated": True, "ref": ref}},
+    }
+    pool.add(FakeSession("sess-a", "127.0.0.1", 45001))
+    pool.add(FakeSession("sess-b", "127.0.0.1", 45002))
+    endpoint_a = hub.register("127.0.0.1", 45001)
+    endpoint_b = hub.register("127.0.0.1", 45002, tool_result=truncated)
+    ctx = _ready_ctx(router)
+
+    _call(router, ctx, "list_funcs", database="sess-b")
+    router.resources_read({"uri": ref}, ctx)
+
+    assert endpoint_a.tool_calls == []
+    read = endpoint_b.tool_calls[-1]["frame"]
+    assert read["method"] == "resources/read"
+    assert read["params"] == {"uri": ref}
+
+
 # --------------------------------------------------------------------------- #
 # WorkerClient hardening — session reuse, stale recovery, connect retry
 # --------------------------------------------------------------------------- #

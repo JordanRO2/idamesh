@@ -47,13 +47,16 @@ from idamesh.interface.router.management import (
     inject_database_arg,
     management_tool_objects,
 )
-from idamesh.interface.router.merge import MergeOrchestrator
+from idamesh.interface.router.merge import MergeOrchestrator, _overflow_ref
 from idamesh.interface.router.ports import (
     GuiDiscoveryPort,
     SessionView,
     WorkerClientPort,
     WorkerPoolPort,
 )
+
+#: Matches the worker ``OverflowStore`` default: older refs are evicted there anyway.
+_MAX_OVERFLOW_OWNERS = 128
 
 
 def _text_block(message: str) -> Dict[str, Any]:
@@ -118,6 +121,9 @@ class SupervisorRouter:
         self._ready_sessions: Set[Optional[str]] = set()
         self._ready_lock = threading.Lock()
         self._inner_ids = itertools.count(1)
+        #: ``mcpref://overflow/`` URI -> the session that parked it, so a bare
+        #: ``resources/read`` of a truncated result can be routed back to its owner.
+        self._overflow_owners: Dict[str, str] = {}
         #: The merge-back pipeline; driven only for ``idb_merge``.
         self._merge = MergeOrchestrator(pool=pool, client=client, discovery=discovery)
 
@@ -293,11 +299,29 @@ class SupervisorRouter:
             raise McpError(ErrorCode.INVALID_PARAMS, "'database' must be a string")
         session = self._resolve_session(database or None)
         session.touch()
+        result = self._forward(
+            session, "tools/call", {"name": name, "arguments": args}, f"'{name}'"
+        )
+        ref = _overflow_ref(result)
+        if ref is not None:
+            self._remember_overflow(ref, session.session_id)
+        return result
+
+    def _remember_overflow(self, uri: str, session_id: str) -> None:
+        owners = self._overflow_owners
+        owners.pop(uri, None)
+        owners[uri] = session_id
+        while len(owners) > _MAX_OVERFLOW_OWNERS:
+            owners.pop(next(iter(owners)))
+
+    def _forward(
+        self, session: SessionView, method: str, params: Mapping[str, Any], label: str
+    ) -> dict:
         frame = {
             "jsonrpc": "2.0",
             "id": next(self._inner_ids),
-            "method": "tools/call",
-            "params": {"name": name, "arguments": args},
+            "method": method,
+            "params": dict(params),
         }
         try:
             response = self._client.forward(
@@ -309,7 +333,7 @@ class SupervisorRouter:
         except Exception as exc:  # noqa: BLE001 — transport failure → protocol error
             raise McpError(
                 ErrorCode.INTERNAL,
-                f"failed forwarding '{name}' to session '{session.session_id}': {exc}",
+                f"failed forwarding {label} to session '{session.session_id}': {exc}",
             ) from exc
         if response is None:
             raise McpError(
@@ -385,11 +409,18 @@ class SupervisorRouter:
         return {"resourceTemplates": []}
 
     def resources_read(self, params: Mapping[str, Any], ctx: RequestView) -> dict:
-        """A bare resource read carries no session id, so it cannot be routed.
+        """Route an overflow ref back to the session that parked it.
 
-        Direct the caller to the tool form, which takes ``database=``.
+        Any other bare resource read carries no session id, so it cannot be
+        routed: direct the caller to the tool form, which takes ``database=``.
         """
         self._require_initialized(ctx)
+        uri = params.get("uri")
+        owner = self._overflow_owners.get(uri) if isinstance(uri, str) else None
+        if owner is not None:
+            session = self._resolve_session(owner)
+            session.touch()
+            return self._forward(session, "resources/read", {"uri": uri}, f"'{uri}'")
         raise McpError(
             ErrorCode.INVALID_PARAMS,
             "resource reads are not routable without a session; call the "
