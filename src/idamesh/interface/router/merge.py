@@ -565,10 +565,18 @@ class MergeOrchestrator:
         counts = {"names": 0, "comments": 0, "types": 0}
         failures: List[Any] = []
         worker_ok = True
-        for chunk in _split_wire(wire, _APPLY_BATCH_ITEMS):
-            structured = self._call_worker_tool(
-                target, _APPLY_TOOL, {"record": chunk}
-            ) or {}
+        for done, chunk in enumerate(_split_wire(wire, _APPLY_BATCH_ITEMS)):
+            try:
+                structured = self._call_worker_tool(
+                    target, _APPLY_TOOL, {"record": chunk}
+                ) or {}
+            except MergeError as exc:
+                # Earlier chunks are already live in the target; say so.
+                raise MergeError(
+                    f"{exc} (partially applied: {done} earlier chunk(s), "
+                    f"{sum(counts.values())} annotation(s) already written to "
+                    f"'{target.session_id}')"
+                ) from exc
             applied = structured.get("applied") or {}
             for field in counts:
                 counts[field] += int(applied.get(field, 0))

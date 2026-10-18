@@ -745,6 +745,25 @@ def test_apply_transport_error_yields_structured_error_not_exception():
     assert env.endpoints["sess-1"].calls_named(SNAPSHOT) == []
 
 
+def test_apply_failure_in_a_later_chunk_reports_the_partial_apply(monkeypatch):
+    monkeypatch.setattr(merge_module, "_APPLY_BATCH_ITEMS", 1)
+
+    class FailsSecondApply(FakeEndpoint):
+        def handle(self, frame):
+            if frame["params"]["name"] == APPLY and len(self.calls_named(APPLY)) == 1:
+                self._record(frame)
+                return _error_response(frame["id"])
+            return super().handle(frame)
+
+    env = _conflicting_env()
+    env.endpoints["sess-1"].__class__ = FailsSecondApply
+
+    result = env.orch.merge({"path": INPUT_PATH, "policy": "last"})
+
+    assert "partially applied: 1 earlier chunk(s)" in result["error"]
+    assert env.endpoints["sess-1"].calls_named(SNAPSHOT) == []
+
+
 def test_snapshot_transport_error_yields_structured_error_not_exception():
     env = _conflicting_env()
     env.endpoints["sess-1"].snapshot_error = True
