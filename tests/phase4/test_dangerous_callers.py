@@ -431,25 +431,22 @@ def test_use_case_limit_not_reached_is_not_truncated():
     assert len(result.matches[0].callers) == 2
 
 
-def test_use_case_counts_only_code_call_refs():
-    data_read = Xref(
-        source=Address(0x401000),
+def _read_xref(source: int, *, func: str | None) -> Xref:
+    """The data-read edge IDA emits for ``call/jmp cs:__imp_X`` at ``source``."""
+    return Xref(
+        source=Address(source),
         target=Address(0x1000),
         kind=XrefKind.DATA,
         ref_type=XrefType.READ,
-        source_func="f0",
+        source_func=func,
     )
-    thunk_jmp = Xref(
-        source=Address(0x402000),
-        target=Address(0x1000),
-        kind=XrefKind.CODE,
-        ref_type=XrefType.JUMP,
-        source_func="thunk",
-    )
+
+
+def test_use_case_dedupes_call_and_read_edges_from_one_instruction():
     imports = _FakeImportRepository([_import(0x1000, "strcpy")])
     # An indirect call yields a code CALL plus a data READ from the same address.
     xrefs = _FakeXrefRepository(
-        {0x1000: [_call_xref(0x401000, func="f0"), data_read, thunk_jmp]}
+        {0x1000: [_call_xref(0x401000, func="f0"), _read_xref(0x401000, func="f0")]}
     )
     use_case = _make_use_case(imports, xrefs)
 
@@ -458,6 +455,61 @@ def test_use_case_counts_only_code_call_refs():
     assert result.matches[0].callers == (
         DangerousCaller(address=Address(0x401000), function="f0"),
     )
+    assert result.truncated is False
+
+
+def test_use_case_keeps_non_thunk_data_read_site():
+    # A tail `jmp cs:__imp_X` in an ordinary function is a data read only.
+    imports = _FakeImportRepository([_import(0x1000, "strcpy")])
+    xrefs = _FakeXrefRepository({0x1000: [_read_xref(0x401000, func="tail")]})
+    functions = _FakeFunctionRepository(
+        {0x401000: Function(ea=Address(0x400F00), name="tail", size=0x100)}
+    )
+    use_case = _make_use_case(imports, xrefs, functions)
+
+    result = use_case.execute(FindDangerousCallersCommand(limit=10))
+
+    assert result.matches[0].callers == (
+        DangerousCaller(address=Address(0x401000), function="tail"),
+    )
+
+
+def test_use_case_replaces_thunk_site_with_thunk_callers():
+    imports = _FakeImportRepository([_import(0x1000, "memcpy")])
+    xrefs = _FakeXrefRepository(
+        {
+            # The thunk's `jmp cs:__imp_memcpy` is a data read only.
+            0x1000: [_read_xref(0x403000, func="memcpy_0")],
+            0x403000: [
+                _call_xref(0x401000, func="f0"),
+                # A duplicate edge and a data reference are not extra callers.
+                _call_xref(0x401000, func="f0"),
+                Xref(
+                    source=Address(0x500000),
+                    target=Address(0x403000),
+                    kind=XrefKind.DATA,
+                    ref_type=XrefType.OFFSET,
+                ),
+                _call_xref(0x401010, func="f1"),
+            ],
+        }
+    )
+    functions = _FakeFunctionRepository(
+        {
+            0x403000: Function(
+                ea=Address(0x403000), name="memcpy_0", size=6, is_thunk=True
+            )
+        }
+    )
+    use_case = _make_use_case(imports, xrefs, functions)
+
+    result = use_case.execute(FindDangerousCallersCommand(limit=10))
+
+    assert result.matches[0].callers == (
+        DangerousCaller(address=Address(0x401000), function="f0"),
+        DangerousCaller(address=Address(0x401010), function="f1"),
+    )
+    assert result.truncated is False
 
 
 def test_use_case_exact_limit_with_no_further_sites_is_not_truncated():
