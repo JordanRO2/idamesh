@@ -37,6 +37,9 @@ from idamesh.interface.router.supervisor import SupervisorRouter
 #: Default front endpoint (env ``IDA_MCP_SUPERVISOR_HOST`` / ``_PORT`` override).
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8745
+#: Optional bearer token for the front endpoint (env only, keeps it out of argv).
+ENV_TOKEN = "IDA_MCP_SUPERVISOR_TOKEN"
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 
 
 @dataclass
@@ -137,6 +140,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     """Serve the supervisor over HTTP until interrupted. Reaps workers on exit."""
     args = _build_parser().parse_args(list(argv) if argv is not None else None)
 
+    token = os.environ.get(ENV_TOKEN) or None
+    if args.host not in _LOOPBACK_HOSTS and token is None:
+        sys.stderr.write(
+            f"idamesh supervisor: refusing to bind non-loopback host {args.host!r} "
+            f"without a bearer token (set {ENV_TOKEN}).\n"
+        )
+        return 2
+
     container = build_supervisor_container(
         server_version=args.server_version,
         max_workers=args.max_workers,
@@ -146,6 +157,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         container.rpc_router,
         host=args.host,
         port=args.port,
+        bearer_token=token,
         supported_protocol_versions=container.protocol_versions,
     )
     try:
