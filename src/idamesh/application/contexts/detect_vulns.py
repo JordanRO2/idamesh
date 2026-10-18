@@ -11,7 +11,7 @@ so a large binary never triggers an unbounded decompile sweep.
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from idamesh.application.dto.detect_vulns import (
     DetectVulnsCommand,
@@ -76,15 +76,18 @@ class DetectVulnsUseCase:
         """
         if command.address.strip():
             targets = [self._resolve_function(command.address)]
+            truncated = False
         else:
             if not self._decompiler.is_available():
                 raise RuntimeError("decompiler is not available for this database")
-            targets = self._dangerous_functions()
+            targets, truncated = self._dangerous_functions()
 
         findings: List[VulnFinding] = []
+        skipped = 0
         for func in targets:
             text = self._safe_decompile(func, allow_skip=not command.address.strip())
             if text is None:
+                skipped += 1
                 continue
             findings.extend(
                 self._heuristics.analyze(
@@ -94,7 +97,9 @@ class DetectVulnsUseCase:
                     danger=self._danger,
                 )
             )
-        return DetectVulnsResult(findings=tuple(findings))
+        return DetectVulnsResult(
+            findings=tuple(findings), truncated=truncated, skipped=skipped
+        )
 
     # -- internals ---------------------------------------------------------
 
@@ -121,35 +126,37 @@ class DetectVulnsUseCase:
                 return None
             raise
 
-    def _dangerous_functions(self) -> List[Function]:
+    def _dangerous_functions(self) -> Tuple[List[Function], bool]:
         """Collect, bounded, the functions that reference a dangerous import.
 
         Walks the import table, and for every import that classifies as dangerous
         gathers the enclosing function of each of its call sites. The result is
         de-duplicated by function entry, preserves first-seen order, and is capped
-        at :data:`_MAX_FUNCTIONS`.
+        at :data:`_MAX_FUNCTIONS`; the flag is set when a further function was
+        left out by that cap (or the import-page cap).
         """
         found: Dict[int, Function] = {}
         offset = 0
         pages = 0
-        while pages < _MAX_PAGES and len(found) < _MAX_FUNCTIONS:
+        while pages < _MAX_PAGES:
             page = self._imports.list(PageRequest(offset=offset, count=MAX_COUNT))
             items = list(page.items)
             if not items:
                 break
             for imported in items:
-                if len(found) >= _MAX_FUNCTIONS:
-                    break
                 if not self._danger.is_dangerous(imported.name):
                     continue
                 for ref in self._xrefs.refs_to(imported.ea):
-                    if len(found) >= _MAX_FUNCTIONS:
-                        break
                     func = self._functions.get_containing(ref.source)
-                    if func is not None and func.ea.value not in found:
-                        found[func.ea.value] = func
+                    if func is None or func.ea.value in found:
+                        continue
+                    if len(found) >= _MAX_FUNCTIONS:
+                        return list(found.values()), True
+                    found[func.ea.value] = func
             if not page.truncated and len(items) < MAX_COUNT:
                 break
             offset += len(items)
             pages += 1
-        return list(found.values())
+        else:
+            return list(found.values()), True
+        return list(found.values()), False

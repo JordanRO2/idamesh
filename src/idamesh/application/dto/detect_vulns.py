@@ -23,6 +23,13 @@ class DetectVulnsCommand:
 
 @dataclass(frozen=True)
 class DetectVulnsResult:
-    """Output for ``detect_vulns`` — the heuristic findings raised."""
+    """Output for ``detect_vulns`` — the heuristic findings raised.
+
+    ``truncated`` is set when the whole-database scan hit its function bound with
+    more candidates left; ``skipped`` counts swept functions whose decompilation
+    failed and were therefore not analyzed.
+    """
 
     findings: Tuple[VulnFinding, ...]
+    truncated: bool = False
+    skipped: int = 0

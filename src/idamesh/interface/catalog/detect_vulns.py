@@ -35,6 +35,8 @@ class DetectVulnsView(TypedDict):
     """The heuristic vulnerability findings raised over the scanned scope."""
 
     findings: List[VulnFindingView]
+    truncated: bool
+    skipped: int
 
 
 def vuln_finding_view(finding: VulnFinding) -> VulnFindingView:
@@ -52,6 +54,8 @@ def detect_vulns_view(result: DetectVulnsResult) -> DetectVulnsView:
     """Project a ``detect_vulns`` result into its wire shape."""
     return DetectVulnsView(
         findings=[vuln_finding_view(finding) for finding in result.findings],
+        truncated=result.truncated,
+        skipped=result.skipped,
     )
 
 
@@ -77,7 +81,9 @@ def register_detect_vulns(
         / ``command_injection`` / …), a ``severity`` band, and a ``description``
         that names the rule that fired. Pass an ``address`` (hex/decimal/symbol) to
         scope the scan to the one function containing it; omit it to scan the whole
-        database, bounded to the functions that reach a dangerous API. An
+        database, bounded to the functions that reach a dangerous API (``truncated``
+        is set when that bound left functions out; ``skipped`` counts functions
+        whose decompilation failed). An
         unresolvable address, an address in no function, or an unavailable
         decompiler yields an error result. Read-only."""
         command = DetectVulnsCommand(address=address)

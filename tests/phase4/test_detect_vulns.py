@@ -581,6 +581,8 @@ def test_whole_db_scan_skips_a_function_whose_decompilation_fails():
     # The failing function is skipped, not fatal; the good one still reports.
     assert [f.function for f in result.findings] == ["good"]
     assert set(decompiler.decompiled) == {0x401000, 0x402000}
+    assert result.skipped == 1
+    assert result.truncated is False
 
 
 def test_whole_db_scan_with_no_dangerous_imports_is_empty():
@@ -650,6 +652,22 @@ def test_whole_db_scan_is_bounded_to_max_functions():
     # Exactly the cap's worth of functions were swept — never the whole overflow.
     assert len(decompiler.decompiled) == _MAX_FUNCTIONS
     assert len(result.findings) == _MAX_FUNCTIONS
+    assert result.truncated is True
+
+
+def test_whole_db_scan_at_exactly_the_cap_is_not_truncated():
+    entries = [0x401000 + i * 0x100 for i in range(_MAX_FUNCTIONS)]
+    containing = {ea: Function(ea=Address(ea), name=f"f{ea:x}", size=0x40) for ea in entries}
+    use_case = _make_use_case(
+        decompiler=_FakeDecompiler({ea: "gets(buf);" for ea in entries}),
+        functions=_FakeFunctions(containing),
+        imports=_FakeImports([_import("gets", 0x500000)]),
+        xrefs=_FakeXrefs({0x500000: [_ref(ea) for ea in entries]}),
+    )
+
+    result = use_case.execute(DetectVulnsCommand(address=""))
+
+    assert result.truncated is False
 
 
 # --------------------------------------------------------------------------- #
@@ -721,8 +739,21 @@ def test_detect_vulns_view_projects_every_finding():
     ]
 
 
+def test_detect_vulns_view_exposes_truncated_and_skipped():
+    view = detect_vulns_view(
+        DetectVulnsResult(findings=(), truncated=True, skipped=3)
+    )
+
+    assert view["truncated"] is True
+    assert view["skipped"] == 3
+
+
 def test_detect_vulns_view_of_empty_result():
-    assert detect_vulns_view(DetectVulnsResult(findings=())) == {"findings": []}
+    assert detect_vulns_view(DetectVulnsResult(findings=())) == {
+        "findings": [],
+        "truncated": False,
+        "skipped": 0,
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -771,7 +802,9 @@ def test_tool_invocation_returns_the_view():
                 "severity": SEVERITY_CRITICAL,
                 "description": view["findings"][0]["description"],
             }
-        ]
+        ],
+        "truncated": False,
+        "skipped": 0,
     }
     assert "R1" in view["findings"][0]["description"]
 
@@ -784,7 +817,11 @@ def test_tool_invocation_on_safe_function_returns_empty_findings():
     )
     spec = _register(use_case).get_tool("detect_vulns")
 
-    assert spec.invoke(address="0x401000") == {"findings": []}
+    assert spec.invoke(address="0x401000") == {
+        "findings": [],
+        "truncated": False,
+        "skipped": 0,
+    }
 
 
 def test_tool_invocation_surfaces_out_of_function_address_as_tool_error():
