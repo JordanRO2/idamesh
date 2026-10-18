@@ -68,7 +68,8 @@ def register_basic_blocks(
     def basic_blocks(address: str) -> BasicBlocksView:
         """List the control-flow basic blocks of the function at or containing
         ``address``. The ``address`` may be a hexadecimal literal (``0x…``), a
-        decimal literal, or a symbol name; it is resolved and mapped to its
+        decimal literal (bare digits are decimal; hex needs ``0x``), or a
+        symbol name; it is resolved and mapped to its
         owning function first. Each block reports its ``start`` and ``end`` (a
         half-open span) and the ``successors`` it may branch to, as their start
         addresses. The reply is capped at a server maximum, with ``truncated``

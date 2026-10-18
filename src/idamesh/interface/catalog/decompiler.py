@@ -21,7 +21,8 @@ def register_decompiler(
     @registry.tool(name="decompile")
     def decompile(address: str) -> DecompileView:
         """Return Hex-Rays pseudocode for the function at ``address``. The
-        ``address`` may be a hexadecimal literal (``0x…``), a decimal literal, or
+        ``address`` may be a hexadecimal literal (``0x…``), a decimal literal
+        (bare digits are decimal; hex needs ``0x``), or
         a symbol name; it is resolved to a function entry before decompiling. The
         result carries the joined ``pseudocode`` text plus the individual source
         ``lines``. If no decompiler is available, or the address is not within a

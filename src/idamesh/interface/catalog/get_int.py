@@ -62,7 +62,8 @@ def register_get_int(
         address: str, size: int = DEFAULT_INT_SIZE, signed: bool = False
     ) -> GetIntView:
         """Read an integer of ``size`` bytes at ``address`` and decode it. The
-        ``address`` may be a hexadecimal literal (``0x…``), a decimal literal, or a
+        ``address`` may be a hexadecimal literal (``0x…``), a decimal literal
+        (bare digits are decimal; hex needs ``0x``), or a
         symbol name; it is resolved first. The bytes are interpreted under the
         database's byte order and, when ``signed`` is true, as a two's-complement
         value. The result reports the resolved ``address`` (``0x`` hex), the

@@ -125,7 +125,11 @@ class Selector:
 
     @classmethod
     def parse(cls, raw: str | int) -> "Selector":
-        """Classify a raw client value as hex, decimal, or a symbol name."""
+        """Classify a raw client value as hex, decimal, or a symbol name.
+
+        Only a ``0x`` prefix makes a value hex: bare digits such as ``401000`` or
+        ``00401000`` are *decimal*, and bare ``deadbeef`` is a symbol name.
+        """
         if isinstance(raw, bool):
             raise ValueError("boolean is not a valid selector")
         if isinstance(raw, int):

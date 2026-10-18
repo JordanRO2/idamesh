@@ -86,7 +86,8 @@ def register_xref_query(
         limit: int = DEFAULT_XREF_QUERY_LIMIT,
     ) -> XrefQueryView:
         """Query the cross-references around ``address`` with kind/type filters. The
-        ``address`` may be a hexadecimal literal (``0x…``), a decimal literal, or a
+        ``address`` may be a hexadecimal literal (``0x…``), a decimal literal
+        (bare digits are decimal; hex needs ``0x``), or a
         symbol name; it is resolved to a concrete anchor first. ``direction`` is
         ``"to"`` (edges pointing at the anchor) or ``"from"`` (the call edges
         leaving the function that owns it). ``kind`` filters on ``"code"`` /

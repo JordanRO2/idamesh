@@ -50,7 +50,8 @@ def register_rename(
     @registry.mutating
     def rename(address: str, name: str) -> RenameView:
         """Set the user name of the item at ``address`` to ``name``. The
-        ``address`` may be a hexadecimal literal (``0x…``), a decimal literal, or a
+        ``address`` may be a hexadecimal literal (``0x…``), a decimal literal
+        (bare digits are decimal; hex needs ``0x``), or a
         symbol name; it is resolved first, and may point at a function or a data
         item. The result reports the resolved ``address`` (``0x`` hex), the
         ``old_name`` that was in force beforehand, the new ``name``, and ``ok``.

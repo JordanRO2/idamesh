@@ -48,7 +48,8 @@ def register_define_code(
     @registry.mutating
     def define_code(address: str) -> DefineCodeView:
         """Create an instruction at ``address``. The ``address`` may be a
-        hexadecimal literal (``0x…``), a decimal literal, or a symbol name; it is
+        hexadecimal literal (``0x…``), a decimal literal (bare digits are
+        decimal; hex needs ``0x``), or a symbol name; it is
         resolved first and should point at the first byte of the intended
         instruction. The analyzer decodes one instruction and infers its length.
         The result reports the resolved ``address`` (``0x`` hex), ``ok``, and the

@@ -52,7 +52,8 @@ def register_patch_asm(
     def patch_asm(address: str, assembly: str) -> PatchAsmView:
         """Assemble the single instruction ``assembly`` and patch it at
         ``address``. The ``address`` may be a hexadecimal literal (``0x…``), a
-        decimal literal, or a symbol name; it is resolved first. ``assembly`` is
+        decimal literal (bare digits are decimal; hex needs ``0x``), or a
+        symbol name; it is resolved first. ``assembly`` is
         one line in the database architecture's syntax (e.g. ``"jmp 0x401000"`` or
         ``"nop"``), encoded by IDA's native assembler as if placed at the resolved
         address and written there. The result reports the resolved ``address``

@@ -50,7 +50,8 @@ def register_declare_stack(
         function: str, name: str, type: str, offset: int = 0
     ) -> DeclareStackView:
         """Define a stack-frame variable on a function. The ``function`` may be a
-        hexadecimal literal (``0x…``), a decimal literal, or a symbol name; it is
+        hexadecimal literal (``0x…``), a decimal literal (bare digits are
+        decimal; hex needs ``0x``), or a symbol name; it is
         resolved to the owning function's entry. ``name`` and ``type`` give the new
         frame variable its name and C type; ``offset`` is the signed frame offset it
         occupies. The result reports the resolved ``function`` (``0x`` hex), the

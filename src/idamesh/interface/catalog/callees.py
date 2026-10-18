@@ -60,7 +60,8 @@ def register_callees(
     def callees(address: str) -> CalleesView:
         """List the functions directly called by the function at or containing
         ``address``. The ``address`` may be a hexadecimal literal (``0x…``), a
-        decimal literal, or a symbol name; it is resolved and mapped to its
+        decimal literal (bare digits are decimal; hex needs ``0x``), or a
+        symbol name; it is resolved and mapped to its
         owning function first. Each callee is reported once, with its entry
         ``addr`` and ``name``. An out-of-range or unresolvable address, or one
         that lies in no function, yields an error result rather than failing the

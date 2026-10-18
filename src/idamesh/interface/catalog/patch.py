@@ -48,7 +48,8 @@ def register_patch(
     @registry.mutating
     def patch(address: str, bytes: str) -> PatchView:
         """Overwrite the raw bytes at ``address`` with ``bytes``. The ``address``
-        may be a hexadecimal literal (``0x…``), a decimal literal, or a symbol
+        may be a hexadecimal literal (``0x…``), a decimal literal (bare digits
+        are decimal; hex needs ``0x``), or a symbol
         name; it is resolved first. ``bytes`` is the replacement data as a
         hexadecimal string, with whitespace between octets tolerated (``"90 90"``
         and ``"9090"`` are equivalent). The result reports the resolved ``address``

@@ -71,7 +71,8 @@ def register_disasm(
     @registry.tool(name="disasm")
     def disasm(address: str, count: int = DEFAULT_DISASM_COUNT) -> DisasmView:
         """Return a bounded linear disassembly starting at ``address``. The
-        ``address`` may be a hexadecimal literal (``0x…``), a decimal literal,
+        ``address`` may be a hexadecimal literal (``0x…``), a decimal literal
+        (bare digits are decimal; hex needs ``0x``),
         or a symbol name; it is resolved to the first instruction listed.
         ``count`` bounds how many instructions are rendered and is clamped to a
         server maximum. Each row carries its ``addr``, the opcode ``bytes`` as a

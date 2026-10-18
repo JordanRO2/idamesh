@@ -47,7 +47,8 @@ def register_force_recompile(
     @registry.mutating
     def force_recompile(address: str) -> ForceRecompileView:
         """Invalidate the decompiler cache for the function at ``address``. The
-        ``address`` may be a hexadecimal literal (``0x…``), a decimal literal, or a
+        ``address`` may be a hexadecimal literal (``0x…``), a decimal literal
+        (bare digits are decimal; hex needs ``0x``), or a
         symbol name; it is resolved first and mapped to its enclosing function. The
         stale cached pseudocode is dropped so the next ``decompile`` regenerates
         fresh output after type, rename, operand, or data edits. The result reports

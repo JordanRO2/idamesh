@@ -47,7 +47,8 @@ def register_undefine(
     @registry.destructive
     def undefine(address: str) -> UndefineView:
         """Undefine the item at ``address``, reverting it to raw bytes. The
-        ``address`` may be a hexadecimal literal (``0x…``), a decimal literal, or a
+        ``address`` may be a hexadecimal literal (``0x…``), a decimal literal
+        (bare digits are decimal; hex needs ``0x``), or a
         symbol name; it is resolved first. The function, code, or data definition
         covering the address is discarded. The result reports the resolved
         ``address`` (``0x`` hex) and ``ok``. This modifies the database and

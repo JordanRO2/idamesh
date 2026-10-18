@@ -74,7 +74,8 @@ def register_insn_query(
         limit: int = DEFAULT_INSN_QUERY_LIMIT,
     ) -> InsnQueryView:
         """Filter the decoded instructions of the function at ``address``. The
-        ``address`` may be a hexadecimal literal (``0x…``), a decimal literal, or a
+        ``address`` may be a hexadecimal literal (``0x…``), a decimal literal
+        (bare digits are decimal; hex needs ``0x``), or a
         symbol name; it is resolved to the containing function, which is decoded and
         scanned. ``mnemonic`` requires an exact (case-insensitive) mnemonic when
         non-empty. ``operand_kind`` requires the instruction to carry at least one

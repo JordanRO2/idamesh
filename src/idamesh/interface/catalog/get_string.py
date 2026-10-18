@@ -51,7 +51,8 @@ def register_get_string(
         address: str, max_length: int = DEFAULT_STRING_MAX_LENGTH
     ) -> GetStringView:
         """Read a string starting at ``address``. The ``address`` may be a
-        hexadecimal literal (``0x…``), a decimal literal, or a symbol name; it is
+        hexadecimal literal (``0x…``), a decimal literal (bare digits are
+        decimal; hex needs ``0x``), or a symbol name; it is
         resolved first. At most ``max_length`` bytes are scanned, auto-detecting
         the terminator and encoding. The result reports the resolved ``address``
         (``0x`` hex), the decoded ``value``, and its ``length`` in characters (not

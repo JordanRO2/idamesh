@@ -53,7 +53,8 @@ def register_set_comment(
         function: bool = False,
     ) -> SetCommentView:
         """Attach ``comment`` at ``address``. The ``address`` may be a hexadecimal
-        literal (``0x…``), a decimal literal, or a symbol name; it is resolved
+        literal (``0x…``), a decimal literal (bare digits are decimal; hex
+        needs ``0x``), or a symbol name; it is resolved
         first. By default the text is written as the item comment at that address;
         set ``function`` to route it to the enclosing function's comment instead,
         and set ``repeatable`` to use the repeatable slot (echoed at every

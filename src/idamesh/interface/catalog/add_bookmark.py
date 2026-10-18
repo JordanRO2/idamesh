@@ -48,7 +48,8 @@ def register_add_bookmark(
     @registry.mutating
     def add_bookmark(address: str, description: str) -> AddBookmarkView:
         """Add a marked position (bookmark) at ``address``. The ``address`` may be a
-        hexadecimal literal (``0x…``), a decimal literal, or a symbol name; it is
+        hexadecimal literal (``0x…``), a decimal literal (bare digits are
+        decimal; hex needs ``0x``), or a symbol name; it is
         resolved first. ``description`` is the label shown for the mark. When the
         address is already bookmarked its slot is reused and the description
         updated. The result reports the resolved ``address`` (``0x`` hex), the

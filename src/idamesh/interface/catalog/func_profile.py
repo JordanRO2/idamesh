@@ -58,7 +58,8 @@ def register_func_profile(
     def func_profile(address: str) -> FuncProfileView:
         """Return a compact summary of the function at or containing
         ``address``, without decompiling it. The ``address`` may be a
-        hexadecimal literal (``0x…``), a decimal literal, or a symbol name; it is
+        hexadecimal literal (``0x…``), a decimal literal (bare digits are
+        decimal; hex needs ``0x``), or a symbol name; it is
         resolved and mapped to its owning function first. The summary reports the
         function's ``address`` and ``name``, its byte ``size``, its control-flow
         ``block_count`` and ``edge_count``, and its call degree —

@@ -51,7 +51,8 @@ def register_set_type(
     def set_type(address: str, type: str) -> SetTypeView:
         """Apply the C declaration ``type`` to the function or data item at
         ``address``. The ``address`` may be a hexadecimal literal (``0x…``), a
-        decimal literal, or a symbol name; it is resolved first. ``type`` is a C
+        decimal literal (bare digits are decimal; hex needs ``0x``), or a
+        symbol name; it is resolved first. ``type`` is a C
         declaration or function prototype (e.g. ``int f(char *)`` or ``unsigned
         int``) parsed against the local type library and applied at the address.
         The result reports the resolved ``address`` (``0x`` hex), the item ``name``

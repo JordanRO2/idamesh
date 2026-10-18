@@ -50,7 +50,8 @@ def register_make_data(
     @registry.mutating
     def make_data(address: str, type: str = "", size: int = 0) -> MakeDataView:
         """Define a data item at ``address``. The ``address`` may be a hexadecimal
-        literal (``0x…``), a decimal literal, or a symbol name; it is resolved
+        literal (``0x…``), a decimal literal (bare digits are decimal; hex
+        needs ``0x``), or a symbol name; it is resolved
         first. Supply a C ``type`` declaration (e.g. ``"int"`` or ``"char[16]"``)
         to define a typed item sized to that type; otherwise supply a ``size`` in
         bytes (1/2/4/8 → byte/word/dword/qword) to define a primitive item. At

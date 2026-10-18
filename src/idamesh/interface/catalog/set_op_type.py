@@ -50,7 +50,8 @@ def register_set_op_type(
     @registry.mutating
     def set_op_type(address: str, operand: int, type: str) -> SetOpTypeView:
         """Set the display representation of an instruction operand. The ``address``
-        may be a hexadecimal literal (``0x…``), a decimal literal, or a symbol name;
+        may be a hexadecimal literal (``0x…``), a decimal literal (bare digits
+        are decimal; hex needs ``0x``), or a symbol name;
         it is resolved first and should point at an instruction. ``operand`` is the
         zero-based operand index. ``type`` names the representation to apply — a
         numeric base (``"hex"``, ``"dec"``, ``"oct"``, ``"bin"``, ``"char"``) or

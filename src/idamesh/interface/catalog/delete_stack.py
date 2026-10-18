@@ -49,7 +49,8 @@ def register_delete_stack(
     @registry.destructive
     def delete_stack(function: str, name: str) -> DeleteStackView:
         """Remove a stack-frame variable from a function. The ``function`` may be a
-        hexadecimal literal (``0x…``), a decimal literal, or a symbol name; it is
+        hexadecimal literal (``0x…``), a decimal literal (bare digits are
+        decimal; hex needs ``0x``), or a symbol name; it is
         resolved to the owning function's entry. ``name`` is the frame variable to
         remove. The result reports the resolved ``function`` (``0x`` hex), the
         variable ``name``, and ``ok``. This modifies the database and destroys the

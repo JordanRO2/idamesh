@@ -49,7 +49,8 @@ def register_define_func(
     @registry.mutating
     def define_func(address: str) -> DefineFuncView:
         """Create a function at ``address``. The ``address`` may be a hexadecimal
-        literal (``0x…``), a decimal literal, or a symbol name; it is resolved
+        literal (``0x…``), a decimal literal (bare digits are decimal; hex
+        needs ``0x``), or a symbol name; it is resolved
         first, and should point at the entry instruction of the intended function.
         The analyzer infers the function's end. The result reports the resolved
         ``address`` (``0x`` hex), ``ok``, and the new function's ``name`` (null when

@@ -82,7 +82,8 @@ def register_export_annotations(
         prototypes the user set, each keyed by effective address, plus a
         ``provenance`` block (input path, SHA-256, imagebase, IDA version) that
         identifies the binary. ``funcs`` optionally restricts the export to the
-        given functions — each a hex literal (``0x…``), decimal literal, or symbol
+        given functions — each a hex literal (``0x…``), decimal literal (bare
+        digits are decimal; hex needs ``0x``), or symbol
         name — resolved first; omit it to export the whole database. This is the
         source half of the merge-back and is read-only. An unresolvable selector
         yields an error result rather than failing the protocol request."""

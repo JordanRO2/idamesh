@@ -72,7 +72,8 @@ def register_xrefs_to(
     @registry.tool(name="xrefs_to")
     def xrefs_to(address: str) -> XrefsToView:
         """List the cross-references that point at ``address``. The ``address``
-        may be a hexadecimal literal (``0x…``), a decimal literal, or a symbol
+        may be a hexadecimal literal (``0x…``), a decimal literal (bare digits
+        are decimal; hex needs ``0x``), or a symbol
         name; it is resolved to a concrete target first. Each edge carries the
         referring ``from`` address, the enclosing ``func`` name when the source
         is inside a function, the ``kind`` (``code``/``data``), and the finer

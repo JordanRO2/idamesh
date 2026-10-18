@@ -86,7 +86,8 @@ def register_callgraph(
     ) -> CallgraphView:
         """Return the call graph rooted at the function at or containing
         ``address``, explored breadth-first. The ``address`` may be a
-        hexadecimal literal (``0x…``), a decimal literal, or a symbol name; it is
+        hexadecimal literal (``0x…``), a decimal literal (bare digits are
+        decimal; hex needs ``0x``), or a symbol name; it is
         resolved and mapped to its owning function first. ``depth`` bounds how
         many call layers are explored and is clamped to a server maximum. The
         result reports the ``root`` address, the ``nodes`` reached (each with its

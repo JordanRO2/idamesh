@@ -83,7 +83,8 @@ def register_analyze_function(
         """Return a composite report for the function at or containing
         ``address``, assembled in one call from what an analyst would otherwise
         fetch tool-by-tool. The ``address`` may be a hexadecimal literal
-        (``0x…``), a decimal literal, or a symbol name; it is resolved and mapped
+        (``0x…``), a decimal literal (bare digits are decimal; hex needs
+        ``0x``), or a symbol name; it is resolved and mapped
         to its owning function first. The report bundles the function's
         ``name`` and compact ``profile`` (byte ``size``, control-flow block and
         edge counts, caller and callee degree), its decompiled ``pseudocode``

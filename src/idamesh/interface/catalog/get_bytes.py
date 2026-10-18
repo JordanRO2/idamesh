@@ -46,7 +46,8 @@ def register_get_bytes(
     @registry.tool(name="get_bytes")
     def get_bytes(address: str, size: int) -> GetBytesView:
         """Read ``size`` raw bytes starting at ``address``. The ``address`` may be
-        a hexadecimal literal (``0x…``), a decimal literal, or a symbol name; it is
+        a hexadecimal literal (``0x…``), a decimal literal (bare digits are
+        decimal; hex needs ``0x``), or a symbol name; it is
         resolved to the start of the region first. The result echoes the resolved
         ``address`` (``0x`` hex) and ``size``, and returns the ``bytes`` as a
         lowercase hex string. An out-of-range or unresolvable address, or an

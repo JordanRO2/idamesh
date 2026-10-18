@@ -81,7 +81,8 @@ def register_analyze_component(
     def analyze_component(address: str, depth: int = 2) -> AnalyzeComponentView:
         """Analyze a *component* — the call-subtree rooted at one function — as a
         single unit. The ``address`` may be a hexadecimal literal (``0x…``), a
-        decimal literal, or a symbol name; it is resolved to the root function.
+        decimal literal (bare digits are decimal; hex needs ``0x``), or a
+        symbol name; it is resolved to the root function.
         ``depth`` bounds how many call layers below the root are pulled in (clamped
         to a server maximum). Each reached function is returned as a ``members``
         entry with its ``address``, ``name``, byte ``size``, and caller/callee
