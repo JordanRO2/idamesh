@@ -57,9 +57,13 @@ def register_patch_asm(
         ``"nop"``), encoded by IDA's native assembler as if placed at the resolved
         address and written there. The result reports the resolved ``address``
         (``0x`` hex), the encoded ``bytes`` as a lowercase hex string, the ``size``
-        written, and ``ok``. This modifies the database. Text the architecture
-        cannot assemble, or an unresolvable/unwritable address, yields an error
-        result rather than failing the protocol request."""
+        written, and ``ok`` (always true: failures are error results). This modifies
+        the database. If ``address`` holds a defined instruction and the encoding
+        is longer than it, the patch is refused (it would clobber the next
+        instruction); use ``patch`` to overwrite several instructions. A shorter
+        encoding leaves the old instruction's trailing bytes in place. Text the
+        architecture cannot assemble, or an unresolvable/unwritable address, yields
+        an error result rather than failing the protocol request."""
         command = PatchAsmCommand(address=address, assembly=assembly)
         result = run_mutation(
             executor, lambda: patch_asm_use_case.execute(command)

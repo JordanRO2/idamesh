@@ -52,8 +52,8 @@ def register_patch(
         name; it is resolved first. ``bytes`` is the replacement data as a
         hexadecimal string, with whitespace between octets tolerated (``"90 90"``
         and ``"9090"`` are equivalent). The result reports the resolved ``address``
-        (``0x`` hex), the ``size`` in bytes written, and ``ok``. This modifies the
-        database. An empty or malformed hex payload, or an unresolvable/unwritable
+        (``0x`` hex), the ``size`` in bytes written, and ``ok`` (always true:
+        failures are error results). This modifies the database. An empty or malformed hex payload, or an unresolvable/unwritable
         address, yields an error result rather than failing the protocol
         request."""
         command = PatchCommand(address=address, bytes=bytes)

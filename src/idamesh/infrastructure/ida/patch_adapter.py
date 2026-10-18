@@ -57,6 +57,7 @@ class IdaPatchGateway:
         delegated to an external engine.
         """
         # Lazy SDK import keeps this module importable without IDA present.
+        import ida_bytes
         import idautils
 
         ok, result = idautils.Assemble(int(ea), text)
@@ -64,7 +65,16 @@ class IdaPatchGateway:
             raise ValueError(
                 f"cannot assemble {text!r} at {ea.hex()}: {result}"
             )
-        return _as_bytes(result, text, ea)
+        data = _as_bytes(result, text, ea)
+        # A longer encoding would overwrite the following instruction(s).
+        if ida_bytes.is_code(ida_bytes.get_full_flags(int(ea))):
+            existing = ida_bytes.get_item_size(int(ea))
+            if len(data) > existing:
+                raise ValueError(
+                    f"{text!r} encodes to {len(data)} bytes but the instruction "
+                    f"at {ea.hex()} is {existing}; use patch to overwrite more"
+                )
+        return data
 
 
 def _as_bytes(result: object, text: str, ea: Address) -> bytes:

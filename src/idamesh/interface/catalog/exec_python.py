@@ -55,7 +55,9 @@ def register_exec_python(
         variable, its ``repr`` is returned as ``result``. A syntax error or an
         exception raised by the script comes back as an error result carrying the
         captured output and traceback rather than failing the protocol request.
-        Powerful and unsandboxed: the script has full in-process access to IDA."""
+        ``ok`` is always true: failures are reported as error results,
+        never as ``ok: false``. Powerful and unsandboxed: the script has full
+        in-process access to IDA."""
         command = ExecScriptCommand(code=code)
         result = run_mutation(
             executor, lambda: exec_script_use_case.execute(command)
