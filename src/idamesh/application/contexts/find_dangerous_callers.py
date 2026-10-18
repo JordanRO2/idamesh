@@ -23,6 +23,7 @@ from idamesh.domain.entities.dangerous_caller import (
     DangerousApiMatch,
     DangerousCaller,
 )
+from idamesh.domain.entities.xref import XrefKind, XrefType
 from idamesh.domain.ports.functions import FunctionRepository
 from idamesh.domain.ports.imports import ImportRepository
 from idamesh.domain.ports.xrefs import XrefRepository
@@ -39,11 +40,10 @@ class FindDangerousCallersUseCase:
 
     Walks the import table, classifies each import through the
     :class:`~idamesh.domain.services.dangerous_apis.DangerousApiService`, and for
-    every dangerous import collects the cross-references pointing at its import
-    slot as call sites — each attributed to its enclosing function. Sites are
+    every dangerous import collects the code call cross-references pointing at its
+    import slot as call sites — each attributed to its enclosing function. Sites are
     grouped under the import name and the aggregate is capped at the clamped
-    ``limit``, with ``truncated`` set when the cap (or the page ceiling) elided
-    further sites.
+    ``limit``, with ``truncated`` set when a further call site existed beyond the cap.
     """
 
     def __init__(
@@ -64,8 +64,8 @@ class FindDangerousCallersUseCase:
         """Match imports against the danger table and collect their call sites.
 
         The import table is paged through in address order. Each import that
-        classifies as dangerous has its inbound references collected as call
-        sites (``address`` plus enclosing ``function``), grouped under the import
+        classifies as dangerous has its inbound code-call references collected as
+        call sites (``address`` plus enclosing ``function``), grouped under the import
         name in first-seen order. The total number of collected sites is bounded
         by the clamped ``limit``; ``truncated`` is set when the budget was
         reached — or the page ceiling hit — with dangerous sites still
@@ -88,9 +88,6 @@ class FindDangerousCallersUseCase:
             if not items:
                 break
             for imported in items:
-                if collected >= limit:
-                    truncated = True
-                    break
                 if not self._danger.is_dangerous(imported.name):
                     continue
                 bucket = grouped.get(imported.name)
@@ -99,6 +96,10 @@ class FindDangerousCallersUseCase:
                     grouped[imported.name] = bucket
                     order.append(imported.name)
                 for ref in self._xrefs.refs_to(imported.ea):
+                    # An indirect call also carries a data-read edge, and a thunk
+                    # `jmp` is a data read only; neither is an extra call site.
+                    if ref.kind is not XrefKind.CODE or ref.ref_type is not XrefType.CALL:
+                        continue
                     if collected >= limit:
                         truncated = True
                         break
@@ -109,6 +110,8 @@ class FindDangerousCallersUseCase:
                         )
                     )
                     collected += 1
+                if truncated:
+                    break
             if truncated:
                 break
             if not page.truncated and len(items) < MAX_COUNT:

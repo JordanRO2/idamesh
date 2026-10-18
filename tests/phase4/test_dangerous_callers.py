@@ -431,6 +431,50 @@ def test_use_case_limit_not_reached_is_not_truncated():
     assert len(result.matches[0].callers) == 2
 
 
+def test_use_case_counts_only_code_call_refs():
+    data_read = Xref(
+        source=Address(0x401000),
+        target=Address(0x1000),
+        kind=XrefKind.DATA,
+        ref_type=XrefType.READ,
+        source_func="f0",
+    )
+    thunk_jmp = Xref(
+        source=Address(0x402000),
+        target=Address(0x1000),
+        kind=XrefKind.CODE,
+        ref_type=XrefType.JUMP,
+        source_func="thunk",
+    )
+    imports = _FakeImportRepository([_import(0x1000, "strcpy")])
+    # An indirect call yields a code CALL plus a data READ from the same address.
+    xrefs = _FakeXrefRepository(
+        {0x1000: [_call_xref(0x401000, func="f0"), data_read, thunk_jmp]}
+    )
+    use_case = _make_use_case(imports, xrefs)
+
+    result = use_case.execute(FindDangerousCallersCommand(limit=10))
+
+    assert result.matches[0].callers == (
+        DangerousCaller(address=Address(0x401000), function="f0"),
+    )
+
+
+def test_use_case_exact_limit_with_no_further_sites_is_not_truncated():
+    imports = _FakeImportRepository(
+        [_import(0x1000, "strcpy"), _import(0x1008, "malloc"), _import(0x1010, "gets")]
+    )
+    xrefs = _FakeXrefRepository(
+        {0x1000: [_call_xref(0x401000, func="f0"), _call_xref(0x401010, func="f1")]}
+    )
+    use_case = _make_use_case(imports, xrefs)
+
+    result = use_case.execute(FindDangerousCallersCommand(limit=2))
+
+    assert len(result.matches[0].callers) == 2
+    assert result.truncated is False
+
+
 def test_use_case_clamps_limit_to_maximum_without_error():
     imports = _FakeImportRepository([_import(0x1000, "strcpy")])
     xrefs = _FakeXrefRepository({0x1000: [_call_xref(0x401000, func="f0")]})
